@@ -22,16 +22,6 @@ const formSchema = z.object({
   emergencyContactName: z.string().min(1, "Emergency contact name is required"),
   emergencyContactPhone: z.string().min(1, "Emergency contact phone is required"),
   
-  // Medical History
-  currentMedications: z.string(),
-  allergies: z.string(),
-  medicalHistory: z.string(),
-  
-  // Insurance Information
-  insuranceProvider: z.string().min(1, "Insurance provider is required"),
-  policyNumber: z.string().min(1, "Policy number is required"),
-  groupNumber: z.string(),
-  
   // New Patient Consents
   newPatientConsent: z.boolean().refine(val => val === true, "New Patient Consent is required"),
   patientName: z.string().min(1, "Patient name is required for consent"),
@@ -54,7 +44,7 @@ const IntakeForms = () => {
   const [isLocked, setIsLocked] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const totalSteps = 4;
+  const totalSteps = 2;
 
   const {
     register,
@@ -361,102 +351,8 @@ const IntakeForms = () => {
             </Card>
           )}
 
-          {/* Medical History */}
-          {currentStep >= 2 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <CalendarDays className="h-5 w-5 text-primary" />
-                  <span>Medical History</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="currentMedications">Current Medications</Label>
-                  <Textarea
-                    id="currentMedications"
-                    placeholder="List all medications you are currently taking"
-                    {...register("currentMedications")}
-                    disabled={isLocked}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="allergies">Allergies</Label>
-                  <Textarea
-                    id="allergies"
-                    placeholder="List any known allergies"
-                    {...register("allergies")}
-                    disabled={isLocked}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="medicalHistory">Previous Medical History</Label>
-                  <Textarea
-                    id="medicalHistory"
-                    placeholder="Describe any previous medical conditions or surgeries"
-                    {...register("medicalHistory")}
-                    disabled={isLocked}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Insurance Information */}
-          {currentStep >= 3 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <MapPin className="h-5 w-5 text-primary" />
-                  <span>Insurance Information</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="insuranceProvider">Insurance Provider *</Label>
-                  <Input
-                    id="insuranceProvider"
-                    placeholder="e.g., Blue Cross Blue Shield"
-                    {...register("insuranceProvider")}
-                    disabled={isLocked}
-                    className={errors.insuranceProvider ? "border-destructive" : ""}
-                  />
-                  {errors.insuranceProvider && (
-                    <p className="text-sm text-destructive">{errors.insuranceProvider.message}</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="policyNumber">Policy Number *</Label>
-                    <Input
-                      id="policyNumber"
-                      {...register("policyNumber")}
-                      disabled={isLocked}
-                      className={errors.policyNumber ? "border-destructive" : ""}
-                    />
-                    {errors.policyNumber && (
-                      <p className="text-sm text-destructive">{errors.policyNumber.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="groupNumber">Group Number</Label>
-                    <Input
-                      id="groupNumber"
-                      {...register("groupNumber")}
-                      disabled={isLocked}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Consents and Signature */}
-          {currentStep >= 4 && (
+          {currentStep >= 2 && (
             <div className="space-y-6">
               {/* Patient Name */}
               <Card>
