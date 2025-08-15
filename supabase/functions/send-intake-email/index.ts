@@ -111,30 +111,31 @@ const addSignatureImage = (x: number, y: number, width: number = 80, height: num
 }
 
 // Title
-doc.setFontSize(16)
-doc.setFont(undefined, 'bold')
-doc.text('Patient Intake Forms - Health One Medical Center', 20, yPosition)
-doc.setFont(undefined, 'normal')
-yPosition += 20
-
-// Patient Information
 doc.setFontSize(14)
+doc.setFont(undefined, 'bold')
+doc.text('Patient Intake Forms', 20, yPosition)
+doc.setFont(undefined, 'normal')
+yPosition += 12
+
+// Patient Information - Compressed
+doc.setFontSize(11)
 doc.setFont(undefined, 'bold')
 doc.text('Patient Information:', 20, yPosition)
 doc.setFont(undefined, 'normal')
-yPosition += 10
+yPosition += 8
 
-doc.setFontSize(10)
+doc.setFontSize(9)
 doc.setFont(undefined, 'bold')
 doc.text(`Name: ${patient?.name || 'N/A'}`, 20, yPosition)
 doc.setFont(undefined, 'normal')
-yPosition += 8
-doc.text(`Phone: ${patient?.phone || 'N/A'}`, 20, yPosition)
-yPosition += 8
-doc.text(`Date of Birth: ${form.dateOfBirth || 'N/A'}`, 20, yPosition)
-yPosition += 8
+doc.text(`Phone: ${patient?.phone || 'N/A'}`, 100, yPosition)
+yPosition += 6
 
-// Format address from separate fields
+doc.text(`DOB: ${form.dateOfBirth || 'N/A'}`, 20, yPosition)
+doc.text(`Accident Date: ${form.accidentDate || 'N/A'}`, 100, yPosition)
+yPosition += 6
+
+// Format address from separate fields - put on one line
 const fullAddress = [
   form.address,
   form.city,
@@ -142,9 +143,7 @@ const fullAddress = [
 ].filter(Boolean).join(', ')
 
 doc.text(`Address: ${fullAddress || 'N/A'}`, 20, yPosition)
-yPosition += 8
-doc.text(`Accident Date: ${form.accidentDate || 'N/A'}`, 20, yPosition)
-yPosition += 15
+yPosition += 10
 
 // NEW PATIENT CONSENT SECTION
 doc.setFontSize(12)
