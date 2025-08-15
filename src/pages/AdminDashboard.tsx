@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
-import { Search, Download, Users, FileText, CheckCircle, Clock, ExternalLink } from 'lucide-react';
+import { Search, Download, Users, FileText, CheckCircle, Clock, ExternalLink, Mail, Loader2 } from 'lucide-react';
 
 interface Patient {
   id: string;
@@ -37,6 +37,7 @@ const AdminDashboard = () => {
   const [intakeForms, setIntakeForms] = useState<IntakeForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sendingEmailIds, setSendingEmailIds] = useState<Set<string>>(new Set());
   const [stats, setStats] = useState({
     totalPatients: 0,
     completedForms: 0,
@@ -147,6 +148,39 @@ const AdminDashboard = () => {
         title: "Error",
         description: "Failed to download PDF",
         variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendEmail = async (intakeFormId: string, patientName: string) => {
+    setSendingEmailIds(prev => new Set(prev).add(intakeFormId));
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('send-intake-email', {
+        body: { intakeFormId }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Email sent successfully for ${patientName}`,
+      });
+
+      // Refresh data to show updated email status
+      await fetchData();
+    } catch (error: any) {
+      console.error('Error sending email:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send email",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingEmailIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(intakeFormId);
+        return newSet;
       });
     }
   };
@@ -335,19 +369,45 @@ const AdminDashboard = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {form.pdf_url ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownloadPdf(form.pdf_url!, form.patients.name)}
-                            className="text-xs"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            PDF
-                          </Button>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">No PDF</span>
-                        )}
+                        <div className="flex space-x-2">
+                          {/* PDF Download Button */}
+                          {form.pdf_url ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDownloadPdf(form.pdf_url!, form.patients.name)}
+                              className="text-xs"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              PDF
+                            </Button>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">No PDF</span>
+                          )}
+                          
+                          {/* Email Send Button */}
+                          {form.signed_at && form.pdf_url && (
+                            <Button
+                              size="sm"
+                              variant={form.email_sent ? "secondary" : "default"}
+                              onClick={() => handleSendEmail(form.id, form.patients.name)}
+                              disabled={sendingEmailIds.has(form.id)}
+                              className="text-xs"
+                            >
+                              {sendingEmailIds.has(form.id) ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <Mail className="h-3 w-3 mr-1" />
+                              )}
+                              {sendingEmailIds.has(form.id) 
+                                ? 'Sending...' 
+                                : form.email_sent 
+                                  ? 'Resend' 
+                                  : 'Send Email'
+                              }
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
