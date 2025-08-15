@@ -108,15 +108,16 @@ serve(async (req) => {
     console.log('Generated PDF')
 
     // Save PDF to storage
-    const pdfBuffer = doc.output('arraybuffer')
-    const pdfFileName = `${patient?.name?.replace(/\s+/g, '_') || 'Patient'}_${intakeFormId}_intake.pdf`
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('intake-forms')
-      .upload(`${intakeFormId}/${pdfFileName}`, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: true
-      })
+const pdfArrayBuffer = doc.output('arraybuffer') as ArrayBuffer
+const pdfBytes = new Uint8Array(pdfArrayBuffer)
+const pdfFileName = `${patient?.name?.replace(/\s+/g, '_') || 'Patient'}_${intakeFormId}_intake.pdf`
+
+const { data: uploadData, error: uploadError } = await supabase.storage
+  .from('intake-forms')
+  .upload(`${intakeFormId}/${pdfFileName}`, pdfBytes, {
+    contentType: 'application/pdf',
+    upsert: true
+  })
 
     if (uploadError) {
       console.error('Error uploading PDF:', uploadError)
@@ -125,21 +126,28 @@ serve(async (req) => {
 
     console.log('PDF uploaded to storage:', uploadData.path)
 
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('intake-forms')
-      .getPublicUrl(uploadData.path)
+// Create signed URL (30 days)
+const { data: signedData, error: signedError } = await supabase.storage
+  .from('intake-forms')
+  .createSignedUrl(uploadData.path, 60 * 60 * 24 * 30)
 
-    console.log('PDF public URL:', publicUrl)
+if (signedError) {
+  console.error('Error creating signed URL:', signedError)
+  throw signedError
+}
+
+const signedUrl = signedData.signedUrl
+
+console.log('PDF signed URL:', signedUrl)
 
     // Update intake form with PDF URL
-    const { error: updateError } = await supabase
-      .from('intake_forms')
-      .update({ 
-        pdf_url: publicUrl,
-        pdf_generated_at: new Date().toISOString()
-      })
-      .eq('id', intakeFormId)
+const { error: updateError } = await supabase
+  .from('intake_forms')
+  .update({ 
+    pdf_url: signedUrl,
+    pdf_generated_at: new Date().toISOString()
+  })
+  .eq('id', intakeFormId)
 
     if (updateError) {
       console.error('Error updating intake form with PDF URL:', updateError)
@@ -148,46 +156,60 @@ serve(async (req) => {
 
     console.log('Successfully updated intake form with PDF URL')
 
-    // Send email
-    const resend = new Resend(resendApiKey)
+// Send email
+const resend = new Resend(resendApiKey)
 
-    const fromEmail = 'noreply@h1med.com'
-    const toEmail = 'intake@h1med.com'
+const fromEmail = 'noreply@h1med.com'
+const toEmail = 'intake@h1med.com'
 
-    console.log(`Preparing to send email from ${fromEmail} to ${toEmail}`)
+console.log(`Preparing to send email from ${fromEmail} to ${toEmail}`)
 
-    const emailResult = await resend.emails.send({
-      from: fromEmail,
-      to: toEmail,
-      subject: `New Patient Intake Form - ${patient?.name || 'Unknown Patient'}`,
-      html: `
-        <h2>New Patient Intake Form Submitted</h2>
-        <p><strong>Patient:</strong> ${patient?.name || 'N/A'}</p>
-        <p><strong>Phone:</strong> ${patient?.phone || 'N/A'}</p>
-        <p><strong>Date of Birth:</strong> ${form.dateOfBirth || 'N/A'}</p>
-        <p><strong>Address:</strong> ${fullAddress || 'N/A'}</p>
-        <p><strong>Accident Date:</strong> ${form.accidentDate || 'N/A'}</p>
-        <p><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
-        
-        <h3>Consents Provided:</h3>
-        <ul>
-          <li>New Patient Consent: ${form.newPatientConsent ? 'Yes' : 'No'}</li>
-          <li>Insurance Assignment Consent: ${form.insuranceAssignmentConsent ? 'Yes' : 'No'}</li>
-          <li>Emergency Medical Consent: ${form.emergencyMedicalConsent ? 'Yes' : 'No'}</li>
-        </ul>
-        
-        <p>The complete intake form PDF is attached and available in the system.</p>
-        <p><a href="${publicUrl}" target="_blank">View PDF</a></p>
-      `,
-    })
+// Prepare attachment (base64)
+const base64Content = (() => {
+  let binary = ''
+  for (let i = 0; i < pdfBytes.byteLength; i++) binary += String.fromCharCode(pdfBytes[i])
+  return btoa(binary)
+})()
+
+const emailResult = await resend.emails.send({
+  from: fromEmail,
+  to: toEmail,
+  subject: `New Patient Intake Form - ${patient?.name || 'Unknown Patient'}`,
+  html: `
+    <h2>New Patient Intake Form Submitted</h2>
+    <p><strong>Patient:</strong> ${patient?.name || 'N/A'}</p>
+    <p><strong>Phone:</strong> ${patient?.phone || 'N/A'}</p>
+    <p><strong>Date of Birth:</strong> ${form.dateOfBirth || 'N/A'}</p>
+    <p><strong>Address:</strong> ${fullAddress || 'N/A'}</p>
+    <p><strong>Accident Date:</strong> ${form.accidentDate || 'N/A'}</p>
+    <p><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
+    
+    <h3>Consents Provided:</h3>
+    <ul>
+      <li>New Patient Consent: ${form.newPatientConsent ? 'Yes' : 'No'}</li>
+      <li>Insurance Assignment Consent: ${form.insuranceAssignmentConsent ? 'Yes' : 'No'}</li>
+      <li>Emergency Medical Consent: ${form.emergencyMedicalConsent ? 'Yes' : 'No'}</li>
+    </ul>
+    
+    <p>The complete intake form PDF is attached.</p>
+    <p><a href="${signedUrl}" target="_blank">Open PDF (signed link)</a></p>
+  `,
+  attachments: [
+    {
+      filename: pdfFileName,
+      content: base64Content,
+      contentType: 'application/pdf',
+    },
+  ],
+})
 
     console.log('Resend email sent successfully:', emailResult.id)
     console.log('Email sent successfully')
 
     return new Response(
-      JSON.stringify({ 
+JSON.stringify({ 
         success: true, 
-        pdfUrl: publicUrl,
+        pdfUrl: signedUrl,
         emailId: emailResult.id 
       }),
       { 
