@@ -221,22 +221,6 @@ function generateFormPDF(intakeForm: IntakeFormData, patient: PatientData): stri
         <div class="field"><span class="field-label">Emergency Contact:</span> <span class="field-value">${formData.emergencyContactName || 'Not provided'} - ${formData.emergencyContactPhone || 'Not provided'}</span></div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Medical History</div>
-        <div class="field"><span class="field-label">Current Medications:</span> <span class="field-value">${formData.currentMedications || 'None'}</span></div>
-        <div class="field"><span class="field-label">Allergies:</span> <span class="field-value">${formData.allergies || 'None'}</span></div>
-        <div class="field"><span class="field-label">Medical Conditions:</span> <span class="field-value">${formData.medicalConditions || 'None'}</span></div>
-        <div class="field"><span class="field-label">Previous Surgeries:</span> <span class="field-value">${formData.previousSurgeries || 'None'}</span></div>
-        <div class="field"><span class="field-label">Family History:</span> <span class="field-value">${formData.familyMedicalHistory || 'Not provided'}</span></div>
-        <div class="field"><span class="field-label">Reason for Visit:</span> <span class="field-value">${formData.reasonForVisit || 'Not provided'}</span></div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Insurance Information</div>
-        <div class="field"><span class="field-label">Insurance Provider:</span> <span class="field-value">${formData.insuranceProvider || 'Not provided'}</span></div>
-        <div class="field"><span class="field-label">Policy Number:</span> <span class="field-value">${formData.policyNumber || 'Not provided'}</span></div>
-        <div class="field"><span class="field-label">Group Number:</span> <span class="field-value">${formData.groupNumber || 'Not provided'}</span></div>
-      </div>
 
       <div class="section">
         <div class="section-title">Consents</div>
@@ -325,46 +309,6 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   
   yPosition += 10;
   
-  // Medical History
-  doc.setFontSize(16);
-  doc.text('Medical History', 20, yPosition);
-  yPosition += 10;
-  doc.setFontSize(12);
-  
-  const medicalFields = [
-    [`Current Medications:`, formData.currentMedications || 'None'],
-    [`Allergies:`, formData.allergies || 'None'],
-    [`Medical History:`, formData.medicalHistory || 'None']
-  ];
-  
-  medicalFields.forEach(([label, value]) => {
-    doc.text(label, 20, yPosition);
-    const lines = doc.splitTextToSize(value, 120);
-    doc.text(lines, 80, yPosition);
-    yPosition += lines.length * 8;
-  });
-  
-  yPosition += 10;
-  
-  // Insurance Information
-  doc.setFontSize(16);
-  doc.text('Insurance Information', 20, yPosition);
-  yPosition += 10;
-  doc.setFontSize(12);
-  
-  const insuranceFields = [
-    [`Provider:`, formData.insuranceProvider || 'Not provided'],
-    [`Policy Number:`, formData.policyNumber || 'Not provided'],
-    [`Group Number:`, formData.groupNumber || 'Not provided']
-  ];
-  
-  insuranceFields.forEach(([label, value]) => {
-    doc.text(label, 20, yPosition);
-    doc.text(value, 80, yPosition);
-    yPosition += 8;
-  });
-  
-  yPosition += 10;
   
   // Accident Information (if provided)
   if (formData.accidentDate) {
