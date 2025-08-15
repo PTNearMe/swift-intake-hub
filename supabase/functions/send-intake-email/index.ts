@@ -354,45 +354,126 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
     yPosition += 8;
     yPosition += 10;
   }
+
+  // Add new page for consent forms
+  doc.addPage();
+  yPosition = 30;
+  
+  // NEW PATIENT CONSENT TO THE USE AND DISCLOSURE OF HEALTHCARE INFORMATION
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  let title = doc.splitTextToSize('NEW PATIENT CONSENT TO THE USE AND DISCLOSURE OF HEALTHCARE INFORMATION FOR TREATMENT, PAYMENT, OR HEALTHCARE OPERATIONS', 170);
+  doc.text(title, 20, yPosition);
+  yPosition += title.length * 6 + 10;
+  
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(10);
+  let consentText = doc.splitTextToSize(`I ${formData.patientName || patient.name}, understand that as part of my healthcare, HEALTH ONE MEDICAL CENTER, this organization will use my health information for treatment, payment, and healthcare operations. I have been informed of my rights regarding the use and disclosure of my individually identifiable health information as set forth in the Notice of Privacy Practices, a copy of which I was provided.`, 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 5 + 5;
+  
+  if (formData.newPatientConsent) {
+    doc.text('☑ Patient has agreed to this consent', 20, yPosition);
+  } else {
+    doc.text('☐ Patient has NOT agreed to this consent', 20, yPosition);
+  }
+  yPosition += 15;
+  
+  // ASSIGNMENT OF INSURANCE BENEFITS, RELEASE, & DEMAND
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  title = doc.splitTextToSize('ASSIGNMENT OF INSURANCE BENEFITS, RELEASE, & DEMAND', 170);
+  doc.text(title, 20, yPosition);
+  yPosition += title.length * 6 + 10;
+  
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(10);
+  consentText = doc.splitTextToSize(`I, ${formData.patientName || patient.name}, the undersigned patient/insured knowingly assign my insurance benefits to be paid directly to HEALTH ONE MEDICAL CENTER for services rendered to myself and my dependents. I understand that I am responsible for any amount not covered by insurance.`, 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 5 + 5;
+  
+  if (formData.insuranceAssignmentConsent) {
+    doc.text('☑ Patient has agreed to this assignment', 20, yPosition);
+  } else {
+    doc.text('☐ Patient has NOT agreed to this assignment', 20, yPosition);
+  }
+  yPosition += 15;
   
   // Check if we need a new page
+  if (yPosition > 200) {
+    doc.addPage();
+    yPosition = 30;
+  }
+  
+  // NOTICE OF EMERGENCY MEDICAL CONDITION
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  title = doc.splitTextToSize('NOTICE OF EMERGENCY MEDICAL CONDITION', 170);
+  doc.text(title, 20, yPosition);
+  yPosition += title.length * 6 + 10;
+  
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(10);
+  consentText = doc.splitTextToSize(`Federal law requires that anyone seeking emergency medical care receive a medical screening examination and any necessary stabilization treatment, regardless of insurance coverage or ability to pay. This hospital provides care for emergency medical conditions. You may ask for a list of doctors who are on the hospital staff to provide treatment. You may also ask for a list of doctors who take emergency department calls.`, 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 5 + 10;
+  
+  if (formData.accidentDate) {
+    consentText = doc.splitTextToSize(`This treatment is related to an accident that occurred on ${formData.accidentDate}.`, 170);
+    doc.text(consentText, 20, yPosition);
+    yPosition += consentText.length * 5 + 5;
+  }
+  
+  if (formData.emergencyMedicalConsent) {
+    doc.text('☑ Patient has acknowledged this notice', 20, yPosition);
+  } else {
+    doc.text('☐ Patient has NOT acknowledged this notice', 20, yPosition);
+  }
+  yPosition += 20;
+  
+  // Digital Signature Section
   if (yPosition > 220) {
     doc.addPage();
     yPosition = 30;
   }
   
-  // Consents
   doc.setFontSize(16);
-  doc.text('Consents & Agreements', 20, yPosition);
-  yPosition += 10;
+  doc.setFont(undefined, 'bold');
+  doc.text('DIGITAL SIGNATURE', 20, yPosition);
+  yPosition += 15;
+  
+  doc.setFont(undefined, 'normal');
   doc.setFontSize(12);
   
-  const consentFields = [
-    [`New Patient Consent:`, formData.newPatientConsent ? 'Agreed' : 'Not agreed'],
-    [`Insurance Assignment:`, formData.insuranceAssignmentConsent ? 'Agreed' : 'Not agreed'],
-    [`Emergency Medical Condition:`, formData.emergencyMedicalConsent ? 'Acknowledged' : 'Not acknowledged']
-  ];
-  
-  consentFields.forEach(([label, value]) => {
-    doc.text(label, 20, yPosition);
-    doc.text(value, 80, yPosition);
+  // Add signature image if available
+  if (formData.signature) {
+    try {
+      // Add signature image to PDF
+      doc.addImage(formData.signature, 'PNG', 20, yPosition, 80, 30);
+      yPosition += 35;
+    } catch (error) {
+      console.log('Error adding signature image:', error);
+      // Fallback to text representation
+      doc.text('Digital signature provided', 20, yPosition);
+      yPosition += 8;
+    }
+  } else {
+    doc.text('No digital signature provided', 20, yPosition);
     yPosition += 8;
-  });
-  
-  // Signature section
-  if (yPosition > 250) {
-    doc.addPage();
-    yPosition = 30;
   }
   
-  yPosition += 15;
-  doc.setFontSize(16);
-  doc.text('Digital Signature', 20, yPosition);
-  yPosition += 10;
-  doc.setFontSize(12);
   doc.text(`Electronically signed by: ${formData.patientName || patient.name}`, 20, yPosition);
   yPosition += 8;
   doc.text(`Date signed: ${new Date(intakeForm.signed_at || intakeForm.created_at).toLocaleDateString()}`, 20, yPosition);
+  yPosition += 8;
+  doc.text(`Time signed: ${new Date(intakeForm.signed_at || intakeForm.created_at).toLocaleTimeString()}`, 20, yPosition);
+  
+  // Add verification footer
+  yPosition += 20;
+  doc.setFontSize(10);
+  doc.text('This document was electronically signed and is legally binding.', 20, yPosition);
+  yPosition += 5;
+  doc.text('Digital signature verification available upon request.', 20, yPosition);
   
   // Convert to Uint8Array
   const pdfOutput = doc.output('arraybuffer');
