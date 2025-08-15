@@ -452,15 +452,31 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   doc.setFont(undefined, 'bold');
   consentText = doc.splitTextToSize('I fully understand and accept these terms of consent.', 170);
   doc.text(consentText, 20, yPosition);
-  yPosition += consentText.length * 4 + 5;
+  yPosition += consentText.length * 4 + 8;
   doc.setFont(undefined, 'normal');
   
   if (formData.newPatientConsent) {
     doc.text('☑ Patient has agreed to this consent', 20, yPosition);
+    yPosition += 8;
+    
+    // Add digital signature for this consent
+    if (formData.signature) {
+      try {
+        doc.addImage(formData.signature, 'PNG', 20, yPosition, 60, 20);
+        yPosition += 25;
+      } catch (error) {
+        console.log('Error adding signature image:', error);
+        doc.text('Digital signature provided', 20, yPosition);
+        yPosition += 8;
+      }
+    }
+    doc.text(`Signed by: ${formData.patientName || patient.name}`, 20, yPosition);
+    yPosition += 8;
+    doc.text(`Date: ${new Date(intakeForm.signed_at || intakeForm.created_at).toLocaleDateString()}`, 20, yPosition);
   } else {
     doc.text('☐ Patient has NOT agreed to this consent', 20, yPosition);
   }
-  yPosition += 10;
+  yPosition += 15;
   
   // Check if we need a new page
   if (yPosition > 220) {
@@ -481,13 +497,25 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   doc.setFont(undefined, 'bold');
   consentText = doc.splitTextToSize('Insurer and Patient Please Read the Following in its Entirety Carefully!', 170);
   doc.text(consentText, 20, yPosition);
-  yPosition += consentText.length * 4 + 5;
+  yPosition += consentText.length * 4 + 8;
   doc.setFont(undefined, 'normal');
   
   // Main assignment text (this is very long, so split into smaller chunks)
-  const mainText = `I, ${formData.patientName || patient.name}, the undersigned patient/insured knowingly, voluntarily and intentionally assign the rights and benefits of my automobile Insurance, a/k/a Personal Injury Protection (hereinafter PIP), Uninsured Motorist, and Medical Payments policy of insurance to the above health care provider. I understand it is the intention of the provider to accept this assignment of benefits in lieu of demanding payment at the time services are rendered. I understand this document will allow the provider to file suit against an insurer for payment of the insurance benefits or an explanation of benefits and to seek §627.428 damages from the insurer. If the provider's bills are applied to a deductible, I agree this will serve as a benefit to me. This assignment of benefits includes the cost of transportation, medications, supplies, over due interest and any potential claim for common law or statutory bad faith/unfair claims handling. If the insurer disputes the validity of this assignment of benefits then the insurer is instructed to notify the provider in writing within five days of receipt of this document. Failure to inform the provider shall result in a waiver by the insurer to contest the validity of this document. The undersigned directs the insurer to pay the health care provider the maximum amount directly without any reductions & without including the patient's name on the check. To the extent the PIP insurer contends there is a material misrepresentation on the application for insurance resulting in the policy of insurance is declared voided, rescinded, or canceled, I, as the named insured under said policy of insurance, hereby assign the right to receive the premiums paid for my PIP insurance to this provider and to file suit for recovery of the premiums. The insurer is directed to issue such a refund check payable to this provider only. Should the medical bills not exceed the premium refunded, then the provider is directed to mail the patient/named insured a check which represents the difference between the medical bills and the premiums paid.`;
+  const mainText = `I, ${formData.patientName || patient.name}, the undersigned patient/insured knowingly, voluntarily and intentionally assign the rights and benefits of my automobile Insurance, a/k/a Personal Injury Protection (hereinafter PIP), Uninsured Motorist, and Medical Payments policy of insurance to the above health care provider. I understand it is the intention of the provider to accept this assignment of benefits in lieu of demanding payment at the time services are rendered. I understand this document will allow the provider to file suit against an insurer for payment of the insurance benefits or an explanation of benefits and to seek §627.428 damages from the insurer. If the provider's bills are applied to a deductible, I agree this will serve as a benefit to me.`;
   
   consentText = doc.splitTextToSize(mainText, 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 6;
+  
+  const continueText = `This assignment of benefits includes the cost of transportation, medications, supplies, over due interest and any potential claim for common law or statutory bad faith/unfair claims handling. If the insurer disputes the validity of this assignment of benefits then the insurer is instructed to notify the provider in writing within five days of receipt of this document. Failure to inform the provider shall result in a waiver by the insurer to contest the validity of this document.`;
+  
+  consentText = doc.splitTextToSize(continueText, 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 6;
+  
+  const finalText = `The undersigned directs the insurer to pay the health care provider the maximum amount directly without any reductions & without including the patient's name on the check. To the extent the PIP insurer contends there is a material misrepresentation on the application for insurance resulting in the policy of insurance is declared voided, rescinded, or canceled, I, as the named insured under said policy of insurance, hereby assign the right to receive the premiums paid for my PIP insurance to this provider and to file suit for recovery of the premiums.`;
+  
+  consentText = doc.splitTextToSize(finalText, 170);
   doc.text(consentText, 20, yPosition);
   yPosition += consentText.length * 4 + 8;
   
@@ -545,6 +573,22 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   
   if (formData.insuranceAssignmentConsent) {
     doc.text('☑ Patient has agreed to this assignment', 20, yPosition);
+    yPosition += 8;
+    
+    // Add digital signature for this consent
+    if (formData.signature) {
+      try {
+        doc.addImage(formData.signature, 'PNG', 20, yPosition, 60, 20);
+        yPosition += 25;
+      } catch (error) {
+        console.log('Error adding signature image:', error);
+        doc.text('Digital signature provided', 20, yPosition);
+        yPosition += 8;
+      }
+    }
+    doc.text(`Signed by: ${formData.patientName || patient.name}`, 20, yPosition);
+    yPosition += 8;
+    doc.text(`Date: ${new Date(intakeForm.signed_at || intakeForm.created_at).toLocaleDateString()}`, 20, yPosition);
   } else {
     doc.text('☐ Patient has NOT agreed to this assignment', 20, yPosition);
   }
@@ -594,12 +638,29 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
     yPosition += consentText.length * 4 + 4;
   });
   
-  yPosition += 5;
+  yPosition += 8;
   if (formData.emergencyMedicalConsent) {
     doc.text('☑ Patient has acknowledged this notice', 20, yPosition);
+    yPosition += 8;
+    
+    // Add digital signature for this consent
+    if (formData.signature) {
+      try {
+        doc.addImage(formData.signature, 'PNG', 20, yPosition, 60, 20);
+        yPosition += 25;
+      } catch (error) {
+        console.log('Error adding signature image:', error);
+        doc.text('Digital signature provided', 20, yPosition);
+        yPosition += 8;
+      }
+    }
+    doc.text(`Signed by: ${formData.patientName || patient.name}`, 20, yPosition);
+    yPosition += 8;
+    doc.text(`Date: ${new Date(intakeForm.signed_at || intakeForm.created_at).toLocaleDateString()}`, 20, yPosition);
   } else {
     doc.text('☐ Patient has NOT acknowledged this notice', 20, yPosition);
   }
+  yPosition += 20;
   
   // Digital Signature Section
   if (yPosition > 220) {
