@@ -360,37 +360,165 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   yPosition = 30;
   
   // NEW PATIENT CONSENT TO THE USE AND DISCLOSURE OF HEALTHCARE INFORMATION
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   let title = doc.splitTextToSize('NEW PATIENT CONSENT TO THE USE AND DISCLOSURE OF HEALTHCARE INFORMATION FOR TREATMENT, PAYMENT, OR HEALTHCARE OPERATIONS', 170);
   doc.text(title, 20, yPosition);
   yPosition += title.length * 6 + 10;
   
   doc.setFont(undefined, 'normal');
-  doc.setFontSize(10);
-  let consentText = doc.splitTextToSize(`I ${formData.patientName || patient.name}, understand that as part of my healthcare, HEALTH ONE MEDICAL CENTER, this organization will use my health information for treatment, payment, and healthcare operations. I have been informed of my rights regarding the use and disclosure of my individually identifiable health information as set forth in the Notice of Privacy Practices, a copy of which I was provided.`, 170);
+  doc.setFontSize(9);
+  
+  // First paragraph
+  let consentText = doc.splitTextToSize(`I ${formData.patientName || patient.name}, understand that as part of my healthcare. HEALTH ONE MEDICAL CENTER, originates and maintains paper and/or electronic records describing my health history, symptoms, examination and test results, diagnosis, treatment, and any plans for further care of treatment.`, 170);
   doc.text(consentText, 20, yPosition);
-  yPosition += consentText.length * 5 + 5;
+  yPosition += consentText.length * 4 + 5;
+  
+  consentText = doc.splitTextToSize('I understand that this information serves as:', 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 3;
+  
+  const listItems1 = [
+    'A basis for planning my care and treatment.',
+    'A means for communication among the many health professionals who contribute to my care.',
+    'A source of information for applying my diagnosis and surgical information to my bill.',
+    'A means by which a third-party payer can verify that services billed were actually provided.',
+    'A tool for routine healthcare operations such as assessing quality and reviewing the competence of healthcare professionals.'
+  ];
+  
+  listItems1.forEach(item => {
+    consentText = doc.splitTextToSize(`• ${item}`, 165);
+    doc.text(consentText, 25, yPosition);
+    yPosition += consentText.length * 4 + 2;
+  });
+  
+  yPosition += 3;
+  consentText = doc.splitTextToSize('I understand and have been provided with a Notice of Information Practices that provides a more complete description of information uses and disclosures.', 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 5;
+  
+  consentText = doc.splitTextToSize('I understand that I have the following rights and privileges:', 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 3;
+  
+  const listItems2 = [
+    'The right to review the notice prior to signing this consent.',
+    'The right to object to the use of my health information for directory purposes.',
+    'The right to request restrictions as to how my health information may be used or disclosed or to carry out treatment, payment, or healthcare options.'
+  ];
+  
+  listItems2.forEach(item => {
+    consentText = doc.splitTextToSize(`• ${item}`, 165);
+    doc.text(consentText, 25, yPosition);
+    yPosition += consentText.length * 4 + 2;
+  });
+  
+  yPosition += 3;
+  consentText = doc.splitTextToSize('I understand that HEALTH ONE MEDICAL CENTER, is not required to agree to the restrictions requested. I understand that I may revoke this consent in writing except to the extent that the organization has already taken action in reliance thereon. I also understand that by refusing to sign this consent or revoking this consent, this organization may refuse to treat me as permitted by Section 164.506 of the Code of Federal Regulations.', 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 5;
+  
+  consentText = doc.splitTextToSize('I further understand that HEALTH ONE MEDICAL CENTER, reserves the right to change their notice and practice and prior to implementation in accordance with Section 164.520 of the Code of Federal Regulations. HEALTH ONE MEDICAL CENTER, P.A., change their notice, they will send a copy of any revised notice to the address I have provided (whether U.S. mail or agreed e-mail).', 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 5;
+  
+  consentText = doc.splitTextToSize('I understand that as part of my organization\'s, treatment, payment, or healthcare operations, it may become necessary to disclose my protected health information to another entity. I consent to such disclosure for these permitted uses, including disclosures via fax.', 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 5;
+  
+  doc.setFont(undefined, 'bold');
+  consentText = doc.splitTextToSize('I fully understand and accept these terms of consent.', 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 5;
+  doc.setFont(undefined, 'normal');
   
   if (formData.newPatientConsent) {
     doc.text('☑ Patient has agreed to this consent', 20, yPosition);
   } else {
     doc.text('☐ Patient has NOT agreed to this consent', 20, yPosition);
   }
-  yPosition += 15;
+  yPosition += 10;
+  
+  // Check if we need a new page
+  if (yPosition > 220) {
+    doc.addPage();
+    yPosition = 30;
+  }
   
   // ASSIGNMENT OF INSURANCE BENEFITS, RELEASE, & DEMAND
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   title = doc.splitTextToSize('ASSIGNMENT OF INSURANCE BENEFITS, RELEASE, & DEMAND', 170);
   doc.text(title, 20, yPosition);
   yPosition += title.length * 6 + 10;
   
   doc.setFont(undefined, 'normal');
-  doc.setFontSize(10);
-  consentText = doc.splitTextToSize(`I, ${formData.patientName || patient.name}, the undersigned patient/insured knowingly assign my insurance benefits to be paid directly to HEALTH ONE MEDICAL CENTER for services rendered to myself and my dependents. I understand that I am responsible for any amount not covered by insurance.`, 170);
+  doc.setFontSize(8);
+  
+  doc.setFont(undefined, 'bold');
+  consentText = doc.splitTextToSize('Insurer and Patient Please Read the Following in its Entirety Carefully!', 170);
   doc.text(consentText, 20, yPosition);
-  yPosition += consentText.length * 5 + 5;
+  yPosition += consentText.length * 4 + 5;
+  doc.setFont(undefined, 'normal');
+  
+  // Main assignment text (this is very long, so split into smaller chunks)
+  const mainText = `I, ${formData.patientName || patient.name}, the undersigned patient/insured knowingly, voluntarily and intentionally assign the rights and benefits of my automobile Insurance, a/k/a Personal Injury Protection (hereinafter PIP), Uninsured Motorist, and Medical Payments policy of insurance to the above health care provider. I understand it is the intention of the provider to accept this assignment of benefits in lieu of demanding payment at the time services are rendered. I understand this document will allow the provider to file suit against an insurer for payment of the insurance benefits or an explanation of benefits and to seek §627.428 damages from the insurer. If the provider's bills are applied to a deductible, I agree this will serve as a benefit to me. This assignment of benefits includes the cost of transportation, medications, supplies, over due interest and any potential claim for common law or statutory bad faith/unfair claims handling. If the insurer disputes the validity of this assignment of benefits then the insurer is instructed to notify the provider in writing within five days of receipt of this document. Failure to inform the provider shall result in a waiver by the insurer to contest the validity of this document. The undersigned directs the insurer to pay the health care provider the maximum amount directly without any reductions & without including the patient's name on the check. To the extent the PIP insurer contends there is a material misrepresentation on the application for insurance resulting in the policy of insurance is declared voided, rescinded, or canceled, I, as the named insured under said policy of insurance, hereby assign the right to receive the premiums paid for my PIP insurance to this provider and to file suit for recovery of the premiums. The insurer is directed to issue such a refund check payable to this provider only. Should the medical bills not exceed the premium refunded, then the provider is directed to mail the patient/named insured a check which represents the difference between the medical bills and the premiums paid.`;
+  
+  consentText = doc.splitTextToSize(mainText, 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 8;
+  
+  // Check if we need a new page
+  if (yPosition > 240) {
+    doc.addPage();
+    yPosition = 30;
+  }
+  
+  // Add remaining sections
+  const sections = [
+    {
+      title: 'Disputes:',
+      text: 'The insurer is directed by the provider and the undersigned to not issue any checks or drafts in partial settlement of a claim that contain or are accompanied by language releasing the insurer or its insured/patient from liability unless there has been a prior written settlement agreed to by the health provider (specifically the office manager) and the insurer as to the amount payable under the insurance policy. The insured and the provider hereby contests and objects to any reductions or partial payments. Any partial or reduced payment, regardless of the accompanying language, issued by the insurer and deposited by the provider shall be done so under protest, at the risk of the insurer, and the deposit shall not be deemed a waiver, accord, satisfaction, discharge, settlement or agreement by the provider to accept a reduced amount as payment in full. The insurer is hereby placed on notice that this provider reserves the right to seek the full amount of the bills submitted. If the PIP insurer states it can pay claims at 200% of Medicare then the insurer is instructed & directed to provide this provider with a copy of the policy of insurance within 10 days. Any effort by the insurer to pay a disputed debt as full satisfaction must be mailed to the address above, after speaking with the office manager, and mailed to the specific attention of the Office Manager. See Fla. Stat. §673.3111.'
+    },
+    {
+      title: 'EUOs and IMEs:',
+      text: 'If the insurer schedules a defense examination or examination under oath (hereinafter "EUO") the insurer is hereby INSTRUCTED to send a copy of said notification to this provider. The provider or the provider\'s attorney is expressly authorized to appear at any EUO or IME set by the insurer. The health care provider is not the agent of the insurer or the patient for any purpose. This assignment applies to both past and future medical expenses and is valid even if undated. A photocopy of this assignment is to be considered as valid as the original. I agree to pay any applicable deductible, co-payments, for services rendered after the policy of insurance exhausts and for any other services unrelated to the automobile accident. The health care provider is given the power of attorney to: endorse my name on any check for services rendered by the above provider; and to request and obtain a copy of any statements or examinations under oath given by patient.'
+    },
+    {
+      title: 'Release of information:',
+      text: 'I authorize this provider to: furnish an insurer, an insurer\'s intermediary, the patient\'s other medical providers, and the patient\'s attorney via mail, fax, or email, with any and all information that may be contained in the medical records; to obtain insurance coverage information (declaration sheet & policy of insurance) in writing and telephonically from the insurer; request from any insurer all explanation of benefits (EOBs) for all providers and non-redacted PIP payout sheets; obtain any written and verbal statements the patient or anyone else provided to the insurer; obtain copies of the entire claim file, the property damage file, and all medical records, including but not limited to, documents, reports, scans, notes, bills, opinions, X-rays, IMEs, and MRIs, from any other medical provider or any insurer. The provider is permitted to produce my medical records to its attorney in connection with any pending lawsuits. The insurer is directed to keep the patient\'s medical records from this provider private and confidential. The insurer is not authorized to provide these medical records to anyone without the patient\'s and the provider\'s prior express written permission.'
+    },
+    {
+      title: 'Demand:',
+      text: 'Demand is hereby made for the insurer to pay all bills within 30 days without reductions and to mail the latest non-redacted PIP payout sheet and the insurance coverage declaration sheet to the above provider within 15 days. The insurer is directed to pay the bills in the order they are received. However, if a bill from this provider and a claim from anyone else is received by the insurer on the same day the insurer is directed to not apply this provider\'s bill to the deductible. If a bill from this provider and claim from anyone else is received by the insurer on the same day then the insurer is directed to pay this provider first before the policy is exhausted. In the event the provider\'s medical bills are disputed or reduced by the insurer for any reason, or amount, the insurer is to: set aside the entire amount disputed or reduced; escrow the full amount at issue; and not pay the disputed amount to anyone or any entity, including myself, until the dispute is resolved by a Court. Do not exhaust the policy. The insurer is instructed to inform, in writing, the provider of any dispute.'
+    },
+    {
+      title: 'Certification:',
+      text: 'I certify that: I have read and agree to the above; I have not been solicited or promised anything in exchange for receiving health care; I have not received any promises or guarantees from anyone as to the results that may be obtained by any treatment or service; and I agree the provider\'s prices for medical services, treatment and supplies are reasonable, usual and customary.'
+    },
+    {
+      title: 'Caution:',
+      text: 'Please read before signing. If you do not completely understand this document please ask us to explain it to you. If you sign below we will assume you understand and agree to the above.'
+    }
+  ];
+  
+  sections.forEach(section => {
+    doc.setFont(undefined, 'bold');
+    consentText = doc.splitTextToSize(section.title, 170);
+    doc.text(consentText, 20, yPosition);
+    yPosition += consentText.length * 4 + 3;
+    
+    doc.setFont(undefined, 'normal');
+    consentText = doc.splitTextToSize(section.text, 170);
+    doc.text(consentText, 20, yPosition);
+    yPosition += consentText.length * 4 + 6;
+    
+    // Check if we need a new page
+    if (yPosition > 230) {
+      doc.addPage();
+      yPosition = 30;
+    }
+  });
   
   if (formData.insuranceAssignmentConsent) {
     doc.text('☑ Patient has agreed to this assignment', 20, yPosition);
@@ -400,36 +528,55 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   yPosition += 15;
   
   // Check if we need a new page
-  if (yPosition > 200) {
+  if (yPosition > 230) {
     doc.addPage();
     yPosition = 30;
   }
   
   // NOTICE OF EMERGENCY MEDICAL CONDITION
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   title = doc.splitTextToSize('NOTICE OF EMERGENCY MEDICAL CONDITION', 170);
   doc.text(title, 20, yPosition);
   yPosition += title.length * 6 + 10;
   
   doc.setFont(undefined, 'normal');
-  doc.setFontSize(10);
-  consentText = doc.splitTextToSize(`Federal law requires that anyone seeking emergency medical care receive a medical screening examination and any necessary stabilization treatment, regardless of insurance coverage or ability to pay. This hospital provides care for emergency medical conditions. You may ask for a list of doctors who are on the hospital staff to provide treatment. You may also ask for a list of doctors who take emergency department calls.`, 170);
+  doc.setFontSize(9);
+  
+  consentText = doc.splitTextToSize('The undersigned licensed medical provider, hereby asserts:', 170);
   doc.text(consentText, 20, yPosition);
-  yPosition += consentText.length * 5 + 10;
+  yPosition += consentText.length * 4 + 5;
   
-  if (formData.accidentDate) {
-    consentText = doc.splitTextToSize(`This treatment is related to an accident that occurred on ${formData.accidentDate}.`, 170);
+  consentText = doc.splitTextToSize(`1. The below patient, has in the opinion of this medical provider, suffered an Emergency Medical Condition, as a result of the patient's injuries sustained in an automobile accident that occurred on ${formData.accidentDate || "________________________"}.`, 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 5;
+  
+  consentText = doc.splitTextToSize('2. The Basis of the opinion for finding an Emergency Medical Condition is that the patient has sustained acute symptoms of sufficient severity, which may include severe pain, such that the absence of immediate medical attention could reasonably be expected to result in any of the following: a) serious jeopardy to patient health; b) serious impairment to bodily functions; or c) serious dysfunction of a bodily organ or part.', 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 8;
+  
+  consentText = doc.splitTextToSize('The undersigned injured person or legal guardian of such person asserts:', 170);
+  doc.text(consentText, 20, yPosition);
+  yPosition += consentText.length * 4 + 5;
+  
+  const patientAssertions = [
+    '1. The symptoms I reported to the medical provider are true and accurate.',
+    '2. I understand the medical provider has determined I sustained an Emergency Medical condition as a result of the injuries I suffered in the car accident.',
+    '3. The medical provider has explained to my satisfaction the need for future medical attention and the harmful consequences to my health which may occur if I do not receive future treatment.'
+  ];
+  
+  patientAssertions.forEach(assertion => {
+    consentText = doc.splitTextToSize(assertion, 170);
     doc.text(consentText, 20, yPosition);
-    yPosition += consentText.length * 5 + 5;
-  }
+    yPosition += consentText.length * 4 + 4;
+  });
   
+  yPosition += 5;
   if (formData.emergencyMedicalConsent) {
     doc.text('☑ Patient has acknowledged this notice', 20, yPosition);
   } else {
     doc.text('☐ Patient has NOT acknowledged this notice', 20, yPosition);
   }
-  yPosition += 20;
   
   // Digital Signature Section
   if (yPosition > 220) {
