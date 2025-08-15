@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,16 +38,18 @@ const IntakeStart = () => {
     setIsSubmitting(true);
     
     try {
-      const { data: patient, error } = await supabase
+      // Generate UUID client-side so we don't need to SELECT it back
+      const patientId = uuidv4();
+      
+      const { error } = await supabase
         .from("patients")
         .insert([
           {
+            id: patientId,
             name: data.name,
             phone: data.phone,
           },
-        ])
-        .select("id")
-        .single();
+        ]);
 
       if (error) {
         console.error("Error creating patient:", error);
@@ -59,7 +62,7 @@ const IntakeStart = () => {
       }
 
       // Navigate to forms page with patient ID
-      navigate(`/intake/forms?patientId=${patient.id}`);
+      navigate(`/intake/forms?patientId=${patientId}`);
     } catch (error) {
       console.error("Unexpected error:", error);
       toast({
