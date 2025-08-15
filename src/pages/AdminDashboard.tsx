@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -82,20 +81,53 @@ const AdminDashboard = () => {
 
       if (formsError) throw formsError;
 
-      // Fetch patient count
+      // Fetch all patients so we can include those without an intake form yet
+      const { data: patients, error: patientsError } = await supabase
+        .from('patients')
+        .select('id, name, phone, created_at')
+        .order('created_at', { ascending: false });
+
+      if (patientsError) throw patientsError;
+
+      // Fetch patient count for stats
       const { count: patientCount, error: patientError } = await supabase
         .from('patients')
         .select('*', { count: 'exact', head: true });
 
       if (patientError) throw patientError;
 
-      setIntakeForms(forms || []);
+      // Build a set of patient IDs that already have intake forms
+      const patientIdsWithForms = new Set((forms || []).map((f: any) => f.patient_id));
 
-      // Calculate stats
-      const completed = forms?.filter(f => f.signed_at).length || 0;
-      const pending = forms?.filter(f => !f.signed_at && !isFormAbandoned(f)).length || 0;
-      const abandoned = forms?.filter(f => !f.signed_at && isFormAbandoned(f)).length || 0;
-      const withPdfs = forms?.filter(f => f.pdf_url).length || 0;
+      // Patients without any intake form yet
+      const unstartedPatients = (patients || []).filter((p) => !patientIdsWithForms.has(p.id));
+
+      // Create pseudo intake-form rows for patients who haven't started/completed a form
+      const pseudoForms: IntakeForm[] = unstartedPatients.map((p) => ({
+        id: `patient-${p.id}`,
+        patient_id: p.id,
+        signed_at: null,
+        pdf_url: null,
+        email_sent: false,
+        fax_sent: false,
+        // Use the patient creation time as the "started" time
+        created_at: p.created_at,
+        doxy_redirect_at: null,
+        patients: p,
+      }));
+
+      // Merge actual forms with pseudo rows and sort by created_at desc
+      const allRows: IntakeForm[] = ([...(forms || []), ...pseudoForms]).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      setIntakeForms(allRows);
+
+      // Calculate stats from the combined list
+      const completed = allRows.filter(f => f.signed_at).length;
+      const pending = allRows.filter(f => !f.signed_at && !isFormAbandoned(f)).length;
+      const abandoned = allRows.filter(f => !f.signed_at && isFormAbandoned(f)).length;
+      const withPdfs = allRows.filter(f => f.pdf_url).length;
 
       setStats({
         totalPatients: patientCount || 0,
