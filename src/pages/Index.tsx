@@ -21,14 +21,24 @@ const Index = () => {
             Complete your forms quickly and securely from any device.
           </p>
           
-          {/* CTA Button */}
-          <Button 
-            onClick={() => navigate("/intake/start")}
-            size="lg"
-            className="px-8 py-6 text-lg font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            Start Intake
-          </Button>
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              onClick={() => navigate("/intake/start")}
+              size="lg"
+              className="px-8 py-6 text-lg font-semibold"
+            >
+              Start Intake
+            </Button>
+            <Button 
+              onClick={() => navigate("/admin/login")}
+              variant="outline"
+              size="lg"
+              className="px-8 py-6 text-lg font-semibold"
+            >
+              Admin Login
+            </Button>
+          </div>
         </div>
         
         {/* Feature Cards */}
