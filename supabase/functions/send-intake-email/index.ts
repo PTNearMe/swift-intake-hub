@@ -269,16 +269,39 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   const doc = new jsPDF();
   const formData = intakeForm.form_data;
   
+  // Function to add header to each page
+  const addHeader = () => {
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text('HEALTH ONE MEDICAL CENTER', 105, 15, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text('ORLANDO – 1803 Park Center Drive, suite 110 - 32835', 105, 22, { align: 'center' });
+    doc.text('GAINESVILLE – 7328 W. University Ave., suite E - 32607', 105, 27, { align: 'center' });
+    
+    // Add a line separator
+    doc.setLineWidth(0.5);
+    doc.line(20, 32, 190, 32);
+    
+    return 40; // Return the y position after header
+  };
+  
+  // Add header to first page
+  let yPosition = addHeader();
+  
   // Title
   doc.setFontSize(20);
-  doc.text('Patient Intake Form', 20, 30);
+  doc.setFont(undefined, 'bold');
+  doc.text('Patient Intake Form', 20, yPosition);
   
   // Patient header
   doc.setFontSize(14);
-  doc.text(`Patient: ${patient.name}`, 20, 45);
-  doc.text(`Submitted: ${new Date(intakeForm.signed_at || intakeForm.created_at).toLocaleDateString()}`, 20, 55);
+  doc.setFont(undefined, 'normal');
+  doc.text(`Patient: ${patient.name}`, 20, yPosition + 15);
+  doc.text(`Submitted: ${new Date(intakeForm.signed_at || intakeForm.created_at).toLocaleDateString()}`, 20, yPosition + 25);
   
-  let yPosition = 75;
+  yPosition += 45;
   
   // Personal Information
   doc.setFontSize(16);
@@ -357,7 +380,7 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
 
   // Add new page for consent forms
   doc.addPage();
-  yPosition = 30;
+  yPosition = addHeader();
   
   // NEW PATIENT CONSENT TO THE USE AND DISCLOSURE OF HEALTHCARE INFORMATION
   doc.setFontSize(12);
@@ -442,7 +465,7 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   // Check if we need a new page
   if (yPosition > 220) {
     doc.addPage();
-    yPosition = 30;
+    yPosition = addHeader();
   }
   
   // ASSIGNMENT OF INSURANCE BENEFITS, RELEASE, & DEMAND
@@ -471,7 +494,7 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   // Check if we need a new page
   if (yPosition > 240) {
     doc.addPage();
-    yPosition = 30;
+    yPosition = addHeader();
   }
   
   // Add remaining sections
@@ -516,7 +539,7 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
     // Check if we need a new page
     if (yPosition > 230) {
       doc.addPage();
-      yPosition = 30;
+      yPosition = addHeader();
     }
   });
   
@@ -530,7 +553,7 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   // Check if we need a new page
   if (yPosition > 230) {
     doc.addPage();
-    yPosition = 30;
+    yPosition = addHeader();
   }
   
   // NOTICE OF EMERGENCY MEDICAL CONDITION
@@ -581,7 +604,7 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   // Digital Signature Section
   if (yPosition > 220) {
     doc.addPage();
-    yPosition = 30;
+    yPosition = addHeader();
   }
   
   doc.setFontSize(16);
