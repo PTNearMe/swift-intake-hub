@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,8 +9,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { format } from "date-fns";
-import { Search, Download, Users, FileText, CheckCircle, Clock, ExternalLink, Mail, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { format, differenceInDays, differenceInHours } from "date-fns";
+import { Search, Download, Users, FileText, CheckCircle, Clock, ExternalLink, Mail, Loader2, Phone, AlertTriangle } from 'lucide-react';
 
 interface Patient {
   id: string;
@@ -30,6 +32,8 @@ interface IntakeForm {
   patients: Patient;
 }
 
+type FilterStatus = 'all' | 'completed' | 'pending' | 'abandoned';
+
 const AdminDashboard = () => {
   const { signOut, user } = useAuth();
   const { userRole, isAdmin } = useUserRole();
@@ -37,11 +41,13 @@ const AdminDashboard = () => {
   const [intakeForms, setIntakeForms] = useState<IntakeForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [sendingEmailIds, setSendingEmailIds] = useState<Set<string>>(new Set());
   const [stats, setStats] = useState({
     totalPatients: 0,
     completedForms: 0,
     pendingForms: 0,
+    abandonedForms: 0,
     generatedPdfs: 0,
   });
 
@@ -87,13 +93,15 @@ const AdminDashboard = () => {
 
       // Calculate stats
       const completed = forms?.filter(f => f.signed_at).length || 0;
-      const pending = (forms?.length || 0) - completed;
+      const pending = forms?.filter(f => !f.signed_at && !isFormAbandoned(f)).length || 0;
+      const abandoned = forms?.filter(f => !f.signed_at && isFormAbandoned(f)).length || 0;
       const withPdfs = forms?.filter(f => f.pdf_url).length || 0;
 
       setStats({
         totalPatients: patientCount || 0,
         completedForms: completed,
         pendingForms: pending,
+        abandonedForms: abandoned,
         generatedPdfs: withPdfs,
       });
 
@@ -109,10 +117,36 @@ const AdminDashboard = () => {
     }
   };
 
-  const filteredForms = intakeForms.filter((form) =>
-    form.patients.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (form.patients.phone && form.patients.phone.includes(searchTerm))
-  );
+  // Consider a form abandoned if it's been more than 24 hours without completion
+  const isFormAbandoned = (form: IntakeForm): boolean => {
+    if (form.signed_at) return false;
+    const hoursSinceCreated = differenceInHours(new Date(), new Date(form.created_at));
+    return hoursSinceCreated > 24;
+  };
+
+  const getFormStatus = (form: IntakeForm): 'completed' | 'pending' | 'abandoned' => {
+    if (form.signed_at) return 'completed';
+    if (isFormAbandoned(form)) return 'abandoned';
+    return 'pending';
+  };
+
+  const getDaysSinceCreated = (createdAt: string): number => {
+    return differenceInDays(new Date(), new Date(createdAt));
+  };
+
+  const getHoursSinceCreated = (createdAt: string): number => {
+    return differenceInHours(new Date(), new Date(createdAt));
+  };
+
+  const filteredForms = intakeForms.filter((form) => {
+    const matchesSearch = form.patients.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (form.patients.phone && form.patients.phone.includes(searchTerm));
+    
+    if (!matchesSearch) return false;
+
+    if (statusFilter === 'all') return true;
+    return getFormStatus(form) === statusFilter;
+  });
 
   const handleDownloadPdf = async (pdfUrl: string, patientName: string) => {
     try {
@@ -185,6 +219,12 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleCallPatient = (phone: string) => {
+    if (phone) {
+      window.open(`tel:${phone}`, '_self');
+    }
+  };
+
   const handleLogout = async () => {
     await signOut();
     toast({
@@ -238,7 +278,7 @@ const AdminDashboard = () => {
 
       <div className="container mx-auto px-4 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center space-x-2">
@@ -278,6 +318,18 @@ const AdminDashboard = () => {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center space-x-2">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Abandoned Forms</p>
+                  <p className="text-2xl font-bold text-foreground">{stats.abandonedForms}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-2">
                 <FileText className="h-5 w-5 text-blue-600" />
                 <div>
                   <p className="text-sm text-muted-foreground">Generated PDFs</p>
@@ -304,6 +356,17 @@ const AdminDashboard = () => {
                   className="pl-9"
                 />
               </div>
+              <Select value={statusFilter} onValueChange={(value: FilterStatus) => setStatusFilter(value)}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Forms</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="abandoned">Abandoned (24h+)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Patient Table */}
@@ -314,6 +377,7 @@ const AdminDashboard = () => {
                     <TableHead>Patient Name</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Time Since Started</TableHead>
                     <TableHead>Form Started</TableHead>
                     <TableHead>Completed</TableHead>
                     <TableHead>Doxy Redirect</TableHead>
@@ -322,100 +386,135 @@ const AdminDashboard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredForms.map((form) => (
-                    <TableRow key={form.id}>
-                      <TableCell className="font-medium">
-                        {form.patients.name}
-                      </TableCell>
-                      <TableCell>
-                        {form.patients.phone || 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={form.signed_at ? "default" : "secondary"}
-                        >
-                          {form.signed_at ? 'Completed' : 'Pending'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(form.created_at), 'MMM dd, yyyy HH:mm')}
-                      </TableCell>
-                      <TableCell>
-                        {form.signed_at 
-                          ? format(new Date(form.signed_at), 'MMM dd, yyyy HH:mm')
-                          : 'Not completed'
-                        }
-                      </TableCell>
-                      <TableCell>
-                        {form.doxy_redirect_at ? (
-                          <div className="flex items-center space-x-1">
-                            <ExternalLink className="h-3 w-3 text-green-600" />
-                            <span className="text-xs text-green-600">
-                              {format(new Date(form.doxy_redirect_at), 'MMM dd, HH:mm')}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">No redirect</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Badge variant={form.email_sent ? "default" : "secondary"} className="text-xs">
-                            {form.email_sent ? 'Email ✓' : 'Email ✗'}
-                          </Badge>
-                          <Badge variant={form.fax_sent ? "default" : "secondary"} className="text-xs">
-                            {form.fax_sent ? 'Fax ✓' : 'Fax ✗'}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          {/* PDF Download Button */}
-                          {form.pdf_url ? (
+                  {filteredForms.map((form) => {
+                    const formStatus = getFormStatus(form);
+                    const daysSince = getDaysSinceCreated(form.created_at);
+                    const hoursSince = getHoursSinceCreated(form.created_at);
+                    
+                    return (
+                      <TableRow key={form.id}>
+                        <TableCell className="font-medium">
+                          {form.patients.name}
+                        </TableCell>
+                        <TableCell>
+                          {form.patients.phone ? (
                             <Button
+                              variant="ghost"
                               size="sm"
-                              variant="outline"
-                              onClick={() => handleDownloadPdf(form.pdf_url!, form.patients.name)}
-                              className="text-xs"
+                              onClick={() => handleCallPatient(form.patients.phone!)}
+                              className="text-blue-600 hover:text-blue-800 p-0 h-auto font-normal"
                             >
-                              <Download className="h-3 w-3 mr-1" />
-                              PDF
+                              <Phone className="h-3 w-3 mr-1" />
+                              {form.patients.phone}
                             </Button>
                           ) : (
-                            <span className="text-sm text-muted-foreground">No PDF</span>
+                            'N/A'
                           )}
-                          
-                          {/* Email Send Button */}
-                          {form.signed_at && form.pdf_url && (
-                            <Button
-                              size="sm"
-                              variant={form.email_sent ? "secondary" : "default"}
-                              onClick={() => handleSendEmail(form.id, form.patients.name)}
-                              disabled={sendingEmailIds.has(form.id)}
-                              className="text-xs"
-                            >
-                              {sendingEmailIds.has(form.id) ? (
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              ) : (
-                                <Mail className="h-3 w-3 mr-1" />
-                              )}
-                              {sendingEmailIds.has(form.id) 
-                                ? 'Sending...' 
-                                : form.email_sent 
-                                  ? 'Resend' 
-                                  : 'Send Email'
-                              }
-                            </Button>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              formStatus === 'completed' ? "default" : 
+                              formStatus === 'abandoned' ? "destructive" : 
+                              "secondary"
+                            }
+                          >
+                            {formStatus === 'completed' ? 'Completed' : 
+                             formStatus === 'abandoned' ? 'Abandoned' : 
+                             'Pending'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {daysSince > 0 ? (
+                            <span className={`text-sm ${formStatus === 'abandoned' ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                              {daysSince} day{daysSince !== 1 ? 's' : ''} ago
+                            </span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">
+                              {hoursSince}h ago
+                            </span>
                           )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(form.created_at), 'MMM dd, yyyy HH:mm')}
+                        </TableCell>
+                        <TableCell>
+                          {form.signed_at 
+                            ? format(new Date(form.signed_at), 'MMM dd, yyyy HH:mm')
+                            : 'Not completed'
+                          }
+                        </TableCell>
+                        <TableCell>
+                          {form.doxy_redirect_at ? (
+                            <div className="flex items-center space-x-1">
+                              <ExternalLink className="h-3 w-3 text-green-600" />
+                              <span className="text-xs text-green-600">
+                                {format(new Date(form.doxy_redirect_at), 'MMM dd, HH:mm')}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No redirect</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Badge variant={form.email_sent ? "default" : "secondary"} className="text-xs">
+                              {form.email_sent ? 'Email ✓' : 'Email ✗'}
+                            </Badge>
+                            <Badge variant={form.fax_sent ? "default" : "secondary"} className="text-xs">
+                              {form.fax_sent ? 'Fax ✓' : 'Fax ✗'}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            {/* PDF Download Button */}
+                            {form.pdf_url ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDownloadPdf(form.pdf_url!, form.patients.name)}
+                                className="text-xs"
+                              >
+                                <Download className="h-3 w-3 mr-1" />
+                                PDF
+                              </Button>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">No PDF</span>
+                            )}
+                            
+                            {/* Email Send Button */}
+                            {form.signed_at && form.pdf_url && (
+                              <Button
+                                size="sm"
+                                variant={form.email_sent ? "secondary" : "default"}
+                                onClick={() => handleSendEmail(form.id, form.patients.name)}
+                                disabled={sendingEmailIds.has(form.id)}
+                                className="text-xs"
+                              >
+                                {sendingEmailIds.has(form.id) ? (
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                ) : (
+                                  <Mail className="h-3 w-3 mr-1" />
+                                )}
+                                {sendingEmailIds.has(form.id) 
+                                  ? 'Sending...' 
+                                  : form.email_sent 
+                                    ? 'Resend' 
+                                    : 'Send Email'
+                                }
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
               {filteredForms.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                  No intake forms found.
+                  {statusFilter === 'all' ? 'No intake forms found.' : `No ${statusFilter} forms found.`}
                 </div>
               )}
             </div>
