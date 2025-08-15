@@ -167,29 +167,56 @@ const IntakeForms = () => {
 
       // Send email notification with form data
       try {
-        console.log("Sending email notification...");
-        const { error: emailError } = await supabase.functions.invoke('send-intake-email', {
+        console.log("Sending email notification for form:", insertedForm.id);
+        const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-intake-email', {
           body: { intakeFormId: insertedForm.id }
         });
 
         if (emailError) {
-          console.error("Email sending failed:", emailError);
-          // Don't block the user flow if email fails
-          toast({
-            title: "Forms Submitted",
-            description: "Your forms were submitted successfully. Staff will be notified.",
+          console.error("Email sending failed:", {
+            message: emailError.message,
+            details: emailError.details,
+            context: emailError.context
           });
+          
+          // Check if it's a SendGrid configuration issue
+          if (emailError.message?.includes('SENDGRID_API_KEY') || 
+              emailError.message?.includes('sender') || 
+              emailError.message?.includes('verified')) {
+            toast({
+              title: "Forms Submitted Successfully",
+              description: "Your forms were submitted successfully. Email notification may require configuration by staff.",
+            });
+          } else {
+            toast({
+              title: "Forms Submitted",
+              description: "Your forms were submitted successfully. Staff will be notified manually.",
+            });
+          }
         } else {
+          console.log("Email sent successfully:", emailResult);
           toast({
             title: "Forms Completed",
-            description: "Your intake forms have been submitted and staff have been notified.",
+            description: "Your intake forms have been submitted and staff have been notified by email.",
           });
         }
-      } catch (emailError) {
+      } catch (emailError: any) {
         console.error("Email function error:", emailError);
+        
+        // Provide user-friendly error messages based on the type of error
+        let errorMessage = "Your intake forms have been successfully submitted.";
+        
+        if (emailError.message?.includes('SENDGRID_API_KEY')) {
+          errorMessage += " Email notifications require configuration by staff.";
+        } else if (emailError.message?.includes('sender') || emailError.message?.includes('verified')) {
+          errorMessage += " Email notification may require domain verification.";
+        } else {
+          errorMessage += " Staff will be notified manually.";
+        }
+        
         toast({
-          title: "Forms Completed",
-          description: "Your intake forms have been successfully submitted.",
+          title: "Forms Submitted Successfully",
+          description: errorMessage,
         });
       }
 

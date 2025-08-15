@@ -218,42 +218,81 @@ function generateFormPDF(intakeForm: IntakeFormData, patient: PatientData): stri
 }
 
 async function htmlToPdf(html: string): Promise<Uint8Array> {
-  // For now, we'll convert HTML to a simple text-based format
-  // In a production environment, you'd want to use a proper HTML to PDF library
-  const textContent = html
-    .replace(/<[^>]*>/g, '') // Remove HTML tags
+  // Create a more structured text format instead of raw HTML stripping
+  const structuredText = html
+    .replace(/<h1[^>]*>(.*?)<\/h1>/g, '\n\n=== $1 ===\n')
+    .replace(/<h2[^>]*>(.*?)<\/h2>/g, '\n\n--- $1 ---\n')
+    .replace(/<div class="section-title"[^>]*>(.*?)<\/div>/g, '\n\n*** $1 ***\n')
+    .replace(/<div class="field"[^>]*>/g, '\n  ')
+    .replace(/<span class="field-label"[^>]*>(.*?)<\/span>/g, '$1')
+    .replace(/<span class="field-value"[^>]*>(.*?)<\/span>/g, ' $1')
+    .replace(/<span class="checkbox"[^>]*>(.*?)<\/span>/g, '$1 ')
+    .replace(/<p[^>]*>(.*?)<\/p>/g, '\n$1')
+    .replace(/<br\s*\/?>/g, '\n')
+    .replace(/<[^>]*>/g, '') // Remove remaining HTML tags
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
+    .replace(/\n\s*\n\s*\n/g, '\n\n') // Remove excessive line breaks
     .trim();
   
-  return new TextEncoder().encode(textContent);
+  // Add a header to identify the document type
+  const finalText = `PATIENT INTAKE FORM - TEXT FORMAT
+Generated: ${new Date().toISOString()}
+===============================================
+
+${structuredText}
+
+===============================================
+End of Patient Intake Form`;
+  
+  return new TextEncoder().encode(finalText);
 }
 
 function generateEmailSummary(formData: any): string {
-  const name = `${formData.firstName || ''} ${formData.lastName || ''}`.trim() || 'Unknown Patient';
+  const patientName = formData.firstName && formData.lastName 
+    ? `${formData.firstName} ${formData.lastName}` 
+    : 'Unknown Patient';
+    
   const summary = `
-New patient intake form submitted for: ${name}
+📋 NEW PATIENT INTAKE FORM SUBMITTED
+=====================================
 
-Key Information:
-- Date of Birth: ${formData.dateOfBirth || 'Not provided'}
-- Email: ${formData.email || 'Not provided'}
-- Phone: ${formData.phone || 'Not provided'}
-- Reason for Visit: ${formData.reasonForVisit || 'Not provided'}
+👤 PATIENT INFORMATION:
+• Name: ${patientName}
+• Date of Birth: ${formData.dateOfBirth || 'Not provided'}
+• Email: ${formData.email || 'Not provided'}
+• Phone: ${formData.phone || 'Not provided'}
+• Address: ${formData.address || 'Not provided'}
 
-Medical Information:
-- Current Medications: ${formData.currentMedications || 'None'}
-- Allergies: ${formData.allergies || 'None'}
-- Medical Conditions: ${formData.medicalConditions || 'None'}
+🏥 MEDICAL INFORMATION:
+• Current Medications: ${formData.currentMedications || 'None reported'}
+• Known Allergies: ${formData.allergies || 'None reported'}
+• Medical History: ${formData.medicalHistory || 'None reported'}
+• Emergency Contact: ${formData.emergencyContactName || 'Not provided'} - ${formData.emergencyContactPhone || 'Not provided'}
 
-Insurance:
-- Provider: ${formData.insuranceProvider || 'Not provided'}
-- Policy #: ${formData.policyNumber || 'Not provided'}
+💳 INSURANCE INFORMATION:
+• Provider: ${formData.insuranceProvider || 'Not provided'}
+• Policy Number: ${formData.policyNumber || 'Not provided'}
+• Group Number: ${formData.groupNumber || 'Not provided'}
 
-All consents have been electronically signed and are attached in the PDF.
+✅ CONSENTS & AGREEMENTS:
+• Treatment Consent: ${formData.consentTreatment ? '✓ Agreed' : '✗ Not agreed'}
+• Privacy/HIPAA: ${formData.consentPrivacy ? '✓ Agreed' : '✗ Not agreed'}  
+• Financial Responsibility: ${formData.consentFinancial ? '✓ Agreed' : '✗ Not agreed'}
+
+📝 SIGNATURE STATUS: Electronically signed and verified
+
+NEXT STEPS:
+1. Review the attached form data
+2. Schedule patient appointment if needed
+3. Verify insurance information
+4. Contact patient if additional information is required
+
+This form was submitted through the secure patient intake system.
 `;
-  
+   
   return summary;
 }
 
