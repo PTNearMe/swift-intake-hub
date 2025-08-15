@@ -14,7 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      intake_forms: {
+        Row: {
+          created_at: string | null
+          email_sent: boolean | null
+          fax_sent: boolean | null
+          form_data: Json | null
+          id: string
+          patient_id: string
+          signed_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email_sent?: boolean | null
+          fax_sent?: boolean | null
+          form_data?: Json | null
+          id?: string
+          patient_id: string
+          signed_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email_sent?: boolean | null
+          fax_sent?: boolean | null
+          form_data?: Json | null
+          id?: string
+          patient_id?: string
+          signed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intake_forms_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          phone: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
