@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       email_logs: {
         Row: {
           created_at: string
@@ -90,6 +129,36 @@ export type Database = {
           },
         ]
       }
+      intake_sessions: {
+        Row: {
+          completed: boolean
+          created_at: string
+          expires_at: string
+          id: string
+          patient_name: string
+          patient_phone: string | null
+          session_token: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          expires_at?: string
+          id?: string
+          patient_name: string
+          patient_phone?: string | null
+          session_token: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          expires_at?: string
+          id?: string
+          patient_name?: string
+          patient_phone?: string | null
+          session_token?: string
+        }
+        Relationships: []
+      }
       patients: {
         Row: {
           created_at: string | null
@@ -143,6 +212,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_intake_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       create_admin_user: {
         Args: { user_email: string }
         Returns: undefined

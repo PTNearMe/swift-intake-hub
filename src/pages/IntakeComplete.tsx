@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 const IntakeComplete = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const sessionToken = searchParams.get("sessionToken");
   const patientId = searchParams.get("patientId");
   const [countdown, setCountdown] = useState(5);
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -74,14 +76,16 @@ const IntakeComplete = () => {
               Thank you for completing your patient intake forms. Your information has been securely submitted and saved.
             </p>
             
-            <div className="bg-muted rounded-lg p-4 mb-6">
-              <p className="text-sm text-muted-foreground">
-                <strong>Patient ID:</strong> {patientId}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Please keep this ID for your records
-              </p>
-            </div>
+            {(sessionToken || patientId) && (
+              <div className="bg-muted rounded-lg p-4 mb-6">
+                <p className="text-sm text-muted-foreground">
+                  <strong>Session:</strong> {sessionToken || patientId}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Please keep this reference for your records
+                </p>
+              </div>
+            )}
 
             {/* Countdown and Redirect Section */}
             <div className="bg-primary/10 rounded-lg p-4 mb-6">

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -38,31 +39,32 @@ const IntakeStart = () => {
     setIsSubmitting(true);
     
     try {
-      // Generate UUID client-side so we don't need to SELECT it back
-      const patientId = uuidv4();
+      // Generate a secure session token
+      const sessionToken = uuidv4();
       
+      // Create an intake session instead of directly creating a patient
       const { error } = await supabase
-        .from("patients")
+        .from("intake_sessions")
         .insert([
           {
-            id: patientId,
-            name: data.name,
-            phone: data.phone,
+            session_token: sessionToken,
+            patient_name: data.name,
+            patient_phone: data.phone,
           },
         ]);
 
       if (error) {
-        console.error("Error creating patient:", error);
+        console.error("Error creating intake session:", error);
         toast({
           title: "Error",
-          description: "Failed to create patient record. Please try again.",
+          description: "Failed to start intake process. Please try again.",
           variant: "destructive",
         });
         return;
       }
 
-      // Navigate to forms page with patient ID
-      navigate(`/intake/forms?patientId=${patientId}`);
+      // Navigate to forms page with session token
+      navigate(`/intake/forms?sessionToken=${sessionToken}`);
     } catch (error) {
       console.error("Unexpected error:", error);
       toast({
@@ -136,7 +138,7 @@ const IntakeStart = () => {
                 className="w-full py-6 text-lg font-semibold"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Creating Record..." : "Continue to Forms"}
+                {isSubmitting ? "Starting Secure Session..." : "Continue to Forms"}
               </Button>
             </form>
           </CardContent>
