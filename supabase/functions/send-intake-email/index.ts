@@ -50,65 +50,43 @@ const doc = new jsPDF()
 
 // Helper function to add header to each page
 const addHeader = () => {
-  // Add logo
-  const logoUrl = 'https://86ad853d-560e-49db-bd33-729d57a4d0a6.lovableproject.com/lovable-uploads/77934ca8-e9c4-428b-acc2-5ba065199c7f.png'
-  try {
-    // Create a canvas to load and convert the logo
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    
-    // Add logo placeholder for now - in a real implementation we'd load the image
-    doc.setFontSize(16)
-    doc.setFont(undefined, 'bold')
-    doc.text('HEALTH ONE MEDICAL CENTER', 20, 15)
-    doc.setFont(undefined, 'normal')
-    doc.setFontSize(9)
-    doc.text('ORLANDO - 1803 Park Center Drive, Suite 110 - 32835', 20, 22)
-    doc.text('GAINESVILLE - 7328 W. University Ave', 20, 27)
-    
-    // Add a line separator
-    doc.setLineWidth(0.5)
-    doc.line(20, 32, 190, 32)
-  } catch (error) {
-    console.log('Could not add logo, using text header instead')
-    doc.setFontSize(16)
-    doc.setFont(undefined, 'bold')
-    doc.text('HEALTH ONE MEDICAL CENTER', 20, 15)
-    doc.setFont(undefined, 'normal')
-    doc.setFontSize(9)
-    doc.text('ORLANDO - 1803 Park Center Drive, Suite 110 - 32835', 20, 22)
-    doc.text('GAINESVILLE - 7328 W. University Ave', 20, 27)
-    
-    // Add a line separator
-    doc.setLineWidth(0.5)
-    doc.line(20, 32, 190, 32)
-  }
+  // Simple text header without logo for smaller file size
+  doc.setFontSize(12)
+  doc.setFont(undefined, 'bold')
+  doc.text('HEALTH ONE MEDICAL CENTER', 20, 15)
+  doc.setFont(undefined, 'normal')
+  doc.setFontSize(8)
+  doc.text('ORLANDO - 1803 Park Center Drive, Suite 110 - 32835', 20, 22)
+  doc.text('GAINESVILLE - 7328 W. University Ave', 20, 27)
   
-  return 40 // Return starting yPosition after header
+  // Add a simple line separator
+  doc.setLineWidth(0.3)
+  doc.line(20, 30, 190, 30)
+  
+  return 38 // Return starting yPosition after header
+}
+
+// Helper function to add signature image with compression
+const addSignatureImage = (x: number, y: number, width: number = 60, height: number = 20) => {
+  if (form.signature) {
+    try {
+      // Compress signature image by reducing size
+      doc.addImage(form.signature, 'JPEG', x, y, width, height, undefined, 'MEDIUM')
+      return height + 3
+    } catch (error) {
+      console.log('Could not add signature image:', error)
+      doc.setFontSize(7)
+      doc.text('[Digital Signature]', x, y + 8)
+      return 12
+    }
+  } else {
+    doc.setFontSize(7)
+    doc.text('[No Signature]', x, y + 8)
+    return 12
+  }
 }
 
 let yPosition = addHeader()
-
-// Helper function to add signature image
-const addSignatureImage = (x: number, y: number, width: number = 80, height: number = 25) => {
-  if (form.signature) {
-    try {
-      doc.addImage(form.signature, 'PNG', x, y, width, height)
-      return height + 5
-    } catch (error) {
-      console.log('Could not add signature image:', error)
-      doc.setFontSize(8)
-      doc.text('[Digital Signature]', x, y + 10)
-      return 15
-    }
-  } else {
-    doc.setFontSize(8)
-    doc.text('[No Signature]', x, y + 10)
-    return 15
-  }
-}
 
 // Title
 doc.setFontSize(14)
