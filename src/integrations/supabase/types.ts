@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      email_logs: {
+        Row: {
+          created_at: string
+          error_message: string
+          id: string
+          intake_form_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message: string
+          id?: string
+          intake_form_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string
+          id?: string
+          intake_form_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_intake_form_id_fkey"
+            columns: ["intake_form_id"]
+            isOneToOne: false
+            referencedRelation: "intake_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       intake_forms: {
         Row: {
           created_at: string | null

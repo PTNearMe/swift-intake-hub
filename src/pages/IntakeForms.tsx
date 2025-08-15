@@ -129,7 +129,7 @@ const IntakeForms = () => {
         signature,
       };
 
-      const { error } = await supabase
+      const { data: insertedForm, error } = await supabase
         .from("intake_forms")
         .insert([
           {
@@ -139,7 +139,9 @@ const IntakeForms = () => {
             fax_sent: false,
             email_sent: false,
           },
-        ]);
+        ])
+        .select()
+        .single();
 
       if (error) {
         console.error("Error saving forms:", error);
@@ -152,10 +154,34 @@ const IntakeForms = () => {
       }
 
       setIsLocked(true);
-      toast({
-        title: "Forms Completed",
-        description: "Your intake forms have been successfully submitted.",
-      });
+
+      // Send email notification with form data
+      try {
+        console.log("Sending email notification...");
+        const { error: emailError } = await supabase.functions.invoke('send-intake-email', {
+          body: { intakeFormId: insertedForm.id }
+        });
+
+        if (emailError) {
+          console.error("Email sending failed:", emailError);
+          // Don't block the user flow if email fails
+          toast({
+            title: "Forms Submitted",
+            description: "Your forms were submitted successfully. Staff will be notified.",
+          });
+        } else {
+          toast({
+            title: "Forms Completed",
+            description: "Your intake forms have been submitted and staff have been notified.",
+          });
+        }
+      } catch (emailError) {
+        console.error("Email function error:", emailError);
+        toast({
+          title: "Forms Completed",
+          description: "Your intake forms have been successfully submitted.",
+        });
+      }
 
       // Navigate to completion page after a delay
       setTimeout(() => {
