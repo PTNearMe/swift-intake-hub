@@ -131,7 +131,7 @@ const IntakeForms = () => {
 
       const { error } = await supabase
         .from("intake_forms")
-        .upsert([
+        .insert([
           {
             patient_id: patientId,
             form_data: formData,
