@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -14,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { SignaturePad } from "@/components/SignaturePad";
 import { CalendarDays, User, Phone, MapPin, AlertCircle, FileText } from "lucide-react";
+import { validateSession, createPatientFromSession } from "@/utils/sessionValidation";
 
 const formSchema = z.object({
   // Personal Information
@@ -33,8 +35,9 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 const IntakeForms = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const sessionToken = searchParams.get("sessionToken");
   const patientId = searchParams.get("patientId");
   const { toast } = useToast();
   
@@ -44,6 +47,7 @@ const IntakeForms = () => {
   const [isLocked, setIsLocked] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isProcessingSession, setIsProcessingSession] = useState(false);
   const totalSteps = 2;
 
   const {
@@ -56,16 +60,77 @@ const IntakeForms = () => {
     resolver: zodResolver(formSchema),
   });
 
-  // Redirect if no patient ID
+  // Handle session token to patient ID conversion
   useEffect(() => {
-    if (!patientId) {
-      navigate("/intake/start");
-      return;
-    }
-    
-    // Check if forms already exist for this patient
-    checkExistingForms();
-  }, [patientId]);
+    const processSessionToken = async () => {
+      if (sessionToken && !patientId) {
+        console.log("Processing session token:", sessionToken);
+        setIsProcessingSession(true);
+        
+        try {
+          // Validate the session
+          const session = await validateSession(sessionToken);
+          if (!session) {
+            console.error("Invalid or expired session token");
+            toast({
+              title: "Session Expired",
+              description: "Your session has expired. Please start over.",
+              variant: "destructive",
+            });
+            navigate("/intake/start");
+            return;
+          }
+
+          console.log("Valid session found:", session);
+
+          // Create patient from session
+          const newPatientId = await createPatientFromSession(sessionToken);
+          if (!newPatientId) {
+            console.error("Failed to create patient from session");
+            toast({
+              title: "Error",
+              description: "Failed to process your information. Please try again.",
+              variant: "destructive",
+            });
+            navigate("/intake/start");
+            return;
+          }
+
+          console.log("Patient created successfully:", newPatientId);
+
+          // Replace the current URL with patientId (removes sessionToken)
+          navigate(`/intake/forms?patientId=${newPatientId}`, { replace: true });
+          
+        } catch (error) {
+          console.error("Error processing session token:", error);
+          toast({
+            title: "Error",
+            description: "An error occurred processing your session. Please try again.",
+            variant: "destructive",
+          });
+          navigate("/intake/start");
+        } finally {
+          setIsProcessingSession(false);
+        }
+        return;
+      }
+
+      // If we have neither sessionToken nor patientId, redirect to start
+      if (!sessionToken && !patientId) {
+        console.log("No session token or patient ID found, redirecting to start");
+        navigate("/intake/start");
+        return;
+      }
+
+      // If we have patientId, proceed normally
+      if (patientId) {
+        console.log("Using patient ID:", patientId);
+        checkExistingForms();
+      }
+    };
+
+    processSessionToken();
+  }, [sessionToken, patientId, navigate, toast]);
 
   const checkExistingForms = async () => {
     // SECURITY FIX: Anonymous users cannot read medical records
@@ -211,6 +276,21 @@ const IntakeForms = () => {
 
   const progress = (currentStep / totalSteps) * 100;
 
+  // Show loading while processing session token
+  if (isProcessingSession) {
+    return (
+      <div className="min-h-screen bg-background py-8 px-4 flex items-center justify-center">
+        <Card>
+          <CardContent className="flex flex-col items-center space-y-4 pt-6">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground">Processing your information...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Don't render the form until we have a patientId
   if (!patientId) return null;
 
   return (
