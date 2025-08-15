@@ -111,29 +111,52 @@ const handler = async (req: Request): Promise<Response> => {
     
     console.log("PDF public URL:", publicUrl);
 
-    // Send email with PDF attachment using SendGrid
-    await sendEmailWithAttachment(patient.name, pdfBuffer, generateEmailSummary(intakeForm.form_data));
-
-    console.log('Email sent successfully, updating database');
-
-    // Update intake_forms table to mark email as sent and store PDF URL
+    // Update intake_forms table with PDF URL (do this first, before email)
     const { error: updateError } = await supabase
       .from('intake_forms')
       .update({ 
-        email_sent: true,
         pdf_url: publicUrl,
         pdf_generated_at: new Date().toISOString()
       })
       .eq('id', intakeFormId);
 
     if (updateError) {
-      console.error('Error updating intake form:', updateError);
-      // Don't throw here since email was sent successfully
-      await logError(supabase, intakeFormId, `Failed to update email_sent flag: ${updateError.message}`);
+      console.error('Error updating intake form with PDF URL:', updateError);
+      await logError(supabase, intakeFormId, `Failed to update PDF URL: ${updateError.message}`);
+    } else {
+      console.log('Successfully updated intake form with PDF URL');
+    }
+
+    // Try to send email but don't fail if it doesn't work
+    let emailSent = false;
+    try {
+      await sendEmailWithAttachment(patient.name, pdfBuffer, generateEmailSummary(intakeForm.form_data));
+      console.log('Email sent successfully');
+      emailSent = true;
+    } catch (emailError: any) {
+      console.error('Email sending failed, but PDF was generated successfully:', emailError.message);
+      await logError(supabase, intakeFormId, `Email sending failed: ${emailError.message}`);
+    }
+
+    // Update email_sent flag if email was successful
+    if (emailSent) {
+      const { error: emailUpdateError } = await supabase
+        .from('intake_forms')
+        .update({ email_sent: true })
+        .eq('id', intakeFormId);
+
+      if (emailUpdateError) {
+        console.error('Error updating email_sent flag:', emailUpdateError);
+        await logError(supabase, intakeFormId, `Failed to update email_sent flag: ${emailUpdateError.message}`);
+      }
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Email sent successfully' }),
+      JSON.stringify({ 
+        success: true, 
+        message: emailSent ? 'PDF generated and email sent successfully' : 'PDF generated successfully (email failed)',
+        pdfUrl: publicUrl
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
@@ -141,7 +164,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.error('Error in send-intake-email function:', error);
     
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: `Failed to send email: ${error.message}` }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -264,17 +287,17 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   doc.setFontSize(12);
   
   const personalFields = [
-    [`Name:`, `${formData.firstName || ''} ${formData.lastName || ''}`],
+    [`Name:`, formData.patientName || patient.name],
     [`Date of Birth:`, formData.dateOfBirth || 'Not provided'],
-    [`Phone:`, formData.phone || patient.phone || 'Not provided'],
     [`Address:`, formData.address || 'Not provided'],
     [`Emergency Contact:`, `${formData.emergencyContactName || 'Not provided'} - ${formData.emergencyContactPhone || 'Not provided'}`]
   ];
   
   personalFields.forEach(([label, value]) => {
     doc.text(label, 20, yPosition);
-    doc.text(value, 80, yPosition);
-    yPosition += 8;
+    const lines = doc.splitTextToSize(value, 120);
+    doc.text(lines, 80, yPosition);
+    yPosition += lines.length * 8;
   });
   
   yPosition += 10;
@@ -293,8 +316,7 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   
   medicalFields.forEach(([label, value]) => {
     doc.text(label, 20, yPosition);
-    // Handle long text by splitting into multiple lines
-    const lines = doc.splitTextToSize(value, 100);
+    const lines = doc.splitTextToSize(value, 120);
     doc.text(lines, 80, yPosition);
     yPosition += lines.length * 8;
   });
@@ -321,16 +343,34 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   
   yPosition += 10;
   
+  // Accident Information (if provided)
+  if (formData.accidentDate) {
+    doc.setFontSize(16);
+    doc.text('Accident Information', 20, yPosition);
+    yPosition += 10;
+    doc.setFontSize(12);
+    doc.text('Accident Date:', 20, yPosition);
+    doc.text(formData.accidentDate, 80, yPosition);
+    yPosition += 8;
+    yPosition += 10;
+  }
+  
+  // Check if we need a new page
+  if (yPosition > 220) {
+    doc.addPage();
+    yPosition = 30;
+  }
+  
   // Consents
   doc.setFontSize(16);
-  doc.text('Consents', 20, yPosition);
+  doc.text('Consents & Agreements', 20, yPosition);
   yPosition += 10;
   doc.setFontSize(12);
   
   const consentFields = [
-    [`Treatment Consent:`, formData.consentTreatment ? 'Yes' : 'No'],
-    [`Privacy Policy:`, formData.consentPrivacy ? 'Yes' : 'No'],
-    [`Financial Responsibility:`, formData.consentFinancial ? 'Yes' : 'No']
+    [`New Patient Consent:`, formData.newPatientConsent ? 'Agreed' : 'Not agreed'],
+    [`Insurance Assignment:`, formData.insuranceAssignmentConsent ? 'Agreed' : 'Not agreed'],
+    [`Emergency Medical Condition:`, formData.emergencyMedicalConsent ? 'Acknowledged' : 'Not acknowledged']
   ];
   
   consentFields.forEach(([label, value]) => {
@@ -350,7 +390,7 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
   doc.text('Digital Signature', 20, yPosition);
   yPosition += 10;
   doc.setFontSize(12);
-  doc.text(`Electronically signed by: ${formData.firstName || ''} ${formData.lastName || ''}`, 20, yPosition);
+  doc.text(`Electronically signed by: ${formData.patientName || patient.name}`, 20, yPosition);
   yPosition += 8;
   doc.text(`Date signed: ${new Date(intakeForm.signed_at || intakeForm.created_at).toLocaleDateString()}`, 20, yPosition);
   
@@ -360,10 +400,8 @@ function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Arr
 }
 
 function generateEmailSummary(formData: any): string {
-  const patientName = formData.firstName && formData.lastName 
-    ? `${formData.firstName} ${formData.lastName}` 
-    : 'Unknown Patient';
-    
+  const patientName = formData.patientName || 'Unknown Patient';
+     
   const summary = `
 📋 NEW PATIENT INTAKE FORM SUBMITTED
 =====================================
@@ -371,8 +409,6 @@ function generateEmailSummary(formData: any): string {
 👤 PATIENT INFORMATION:
 • Name: ${patientName}
 • Date of Birth: ${formData.dateOfBirth || 'Not provided'}
-• Email: ${formData.email || 'Not provided'}
-• Phone: ${formData.phone || 'Not provided'}
 • Address: ${formData.address || 'Not provided'}
 
 🏥 MEDICAL INFORMATION:
@@ -386,15 +422,18 @@ function generateEmailSummary(formData: any): string {
 • Policy Number: ${formData.policyNumber || 'Not provided'}
 • Group Number: ${formData.groupNumber || 'Not provided'}
 
+🚗 ACCIDENT INFORMATION:
+• Accident Date: ${formData.accidentDate || 'Not provided'}
+
 ✅ CONSENTS & AGREEMENTS:
-• Treatment Consent: ${formData.consentTreatment ? '✓ Agreed' : '✗ Not agreed'}
-• Privacy/HIPAA: ${formData.consentPrivacy ? '✓ Agreed' : '✗ Not agreed'}  
-• Financial Responsibility: ${formData.consentFinancial ? '✓ Agreed' : '✗ Not agreed'}
+• New Patient Consent: ${formData.newPatientConsent ? '✓ Agreed' : '✗ Not agreed'}
+• Insurance Assignment: ${formData.insuranceAssignmentConsent ? '✓ Agreed' : '✗ Not agreed'}  
+• Emergency Medical Condition: ${formData.emergencyMedicalConsent ? '✓ Acknowledged' : '✗ Not acknowledged'}
 
 📝 SIGNATURE STATUS: Electronically signed and verified
 
 NEXT STEPS:
-1. Review the attached form data
+1. Review the attached PDF form
 2. Schedule patient appointment if needed
 3. Verify insurance information
 4. Contact patient if additional information is required
