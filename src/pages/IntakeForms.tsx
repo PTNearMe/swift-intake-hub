@@ -68,39 +68,23 @@ const IntakeForms = () => {
   }, [patientId]);
 
   const checkExistingForms = async () => {
+    // SECURITY FIX: Anonymous users cannot read medical records
+    // This prevents HIPAA violations by ensuring patients cannot access
+    // existing intake forms, which contain sensitive medical information
+    
     if (!patientId) return;
 
-    try {
-      const { data, error } = await supabase
-        .from("intake_forms")
-        .select("*")
-        .eq("patient_id", patientId)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error checking existing forms:", error);
-        return;
-      }
-
-      if (data) {
-        setExistingForm(data);
-        setIsLocked(!!data.signed_at);
-        setPdfUrl(data.pdf_url || null);
-        
-        // Populate form with existing data
-        if (data.form_data) {
-          Object.entries(data.form_data).forEach(([key, value]) => {
-            if (key === 'signature') {
-              setSignature(value as string);
-            } else {
-              setValue(key as keyof FormData, value as any);
-            }
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching existing forms:", error);
-    }
+    // For security compliance, we no longer allow anonymous users to read
+    // existing intake forms. Each visit starts fresh.
+    // This prevents exposure of sensitive medical data via URL manipulation
+    
+    console.log("Starting fresh intake form for patient:", patientId);
+    
+    // Reset to initial state - no pre-filling for security
+    setExistingForm(null);
+    setIsLocked(false);
+    setPdfUrl(null);
+    setSignature(null);
   };
 
   const onSubmit = async (data: FormData) => {
@@ -126,9 +110,11 @@ const IntakeForms = () => {
 
       console.log("Attempting to save intake form with data:", formData);
 
+      // SECURITY: Use upsert to handle duplicate submissions securely
+      // This prevents duplicate records while maintaining security
       const { data: insertedForm, error } = await supabase
         .from("intake_forms")
-        .insert([
+        .upsert([
           {
             patient_id: patientId,
             form_data: formData,
@@ -136,7 +122,9 @@ const IntakeForms = () => {
             fax_sent: false,
             email_sent: false,
           },
-        ])
+        ], {
+          onConflict: 'patient_id'
+        })
         .select()
         .single();
 

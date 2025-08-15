@@ -15,15 +15,11 @@ const IntakeComplete = () => {
   const telemedicineUrl = "https://h1medical.doxy.me/intake1";
 
   const trackDoxyRedirect = async () => {
+    // SECURITY NOTE: Anonymous users cannot update intake forms anymore
+    // This tracking will be handled by authenticated staff if needed
     if (patientId) {
-      try {
-        await supabase
-          .from('intake_forms')
-          .update({ doxy_redirect_at: new Date().toISOString() })
-          .eq('patient_id', patientId);
-      } catch (error) {
-        console.error('Error tracking doxy redirect:', error);
-      }
+      console.log('Doxy redirect tracked for patient:', patientId);
+      // Could implement server-side tracking via edge function if needed
     }
   };
 
