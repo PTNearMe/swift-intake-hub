@@ -45,67 +45,207 @@ serve(async (req) => {
     const form = formData.form_data
     const patient = formData.patients
 
-    // Generate PDF
-    const doc = new jsPDF()
-    let yPosition = 20
+// Generate PDF
+const doc = new jsPDF()
+let yPosition = 20
 
-    // Title
-    doc.setFontSize(16)
-    doc.text('Patient Intake Forms', 20, yPosition)
-    yPosition += 20
+// Title
+doc.setFontSize(16)
+doc.text('Patient Intake Forms - Health One Medical Center', 20, yPosition)
+yPosition += 20
 
-    // Patient Information
-    doc.setFontSize(12)
-    doc.text('Patient Information:', 20, yPosition)
+// Patient Information
+doc.setFontSize(14)
+doc.text('Patient Information:', 20, yPosition)
+yPosition += 10
+
+doc.setFontSize(10)
+doc.text(`Name: ${patient?.name || 'N/A'}`, 20, yPosition)
+yPosition += 8
+doc.text(`Phone: ${patient?.phone || 'N/A'}`, 20, yPosition)
+yPosition += 8
+doc.text(`Date of Birth: ${form.dateOfBirth || 'N/A'}`, 20, yPosition)
+yPosition += 8
+
+// Format address from separate fields
+const fullAddress = [
+  form.address,
+  form.city,
+  form.zipCode
+].filter(Boolean).join(', ')
+
+doc.text(`Address: ${fullAddress || 'N/A'}`, 20, yPosition)
+yPosition += 8
+doc.text(`Accident Date: ${form.accidentDate || 'N/A'}`, 20, yPosition)
+yPosition += 15
+
+// NEW PATIENT CONSENT SECTION
+doc.setFontSize(12)
+doc.text('NEW PATIENT CONSENT TO THE USE AND DISCLOSE OF', 20, yPosition)
+yPosition += 6
+doc.text('HEALTHCARE INFORMATION FOR TREATMENT, PAYMENT, OR HEALTHCARE OPERATIONS', 20, yPosition)
+yPosition += 10
+
+doc.setFontSize(9)
+const consentText1 = `I ${form.patientName || patient?.name || 'N/A'}, understand that as part of my healthcare. HEALTH ONE MEDICAL CENTER, originates and maintains paper and/or electronic records describing my health history, symptoms, examination and test results, diagnosis, treatment, and any plans for further care of treatment.
+
+I understand that this information serves as:
+• A basis for planning my care and treatment.
+• A means for communication among the many health professionals who contribute to my care.
+• A source of information for applying my diagnosis and surgical information to my bill.
+• A means by which a third-party payer can verify that services billed were actually provided.
+• A tool for routine healthcare operations such as assessing quality and reviewing the competence of healthcare professionals.
+
+I understand and have been provided with a Notice of Information Practices that provides a more complete description of information uses and disclosures.
+
+I understand that I have the following rights and privileges:
+• The right to review the notice prior to signing this consent.
+• The right to object to the use of my health information for directory purposes.
+• The right to request restrictions as to how my health information may be used or disclosed or to carry out treatment, payment, or healthcare options.
+
+I understand that HEALTH ONE MEDICAL CENTER, is not required to agree to the restrictions requested. I understand that I may revoke this consent in writing except to the extent that the organization has already taken action in reliance thereon. I also understand that by refusing to sign this consent or revoking this consent, this organization may refuse to treat me as permitted by Section 164.506 of the Code of Federal Regulations.
+
+I further understand that HEALTH ONE MEDICAL CENTER, reserves the right to change their notice and practice and prior to implementation in accordance with Section 164.520 of the Code of Federal Regulations. HEALTH ONE MEDICAL CENTER, P.A., change their notice, they will send a copy of any revised notice to the address I have provided (whether U.S. mail or agreed e-mail).
+
+I understand that as part of my organization's, treatment, payment, or healthcare operations, it may become necessary to disclose my protected health information to another entity. I consent to such disclosure for these permitted uses, including disclosures via fax.
+
+I fully understand and accept these terms of consent.`
+
+// Split text into lines and add to PDF
+const lines1 = doc.splitTextToSize(consentText1, 170)
+for (const line of lines1) {
+  if (yPosition > 250) {
+    doc.addPage()
+    yPosition = 20
+  }
+  doc.text(line, 20, yPosition)
+  yPosition += 4
+}
+
+doc.setFontSize(10)
+yPosition += 5
+doc.text(`Patient Consent: ${form.newPatientConsent ? 'AGREED' : 'NOT AGREED'}`, 20, yPosition)
+yPosition += 15
+
+// Add new page for insurance assignment
+doc.addPage()
+yPosition = 20
+
+// ASSIGNMENT OF INSURANCE BENEFITS SECTION
+doc.setFontSize(12)
+doc.text('ASSIGNMENT OF INSURANCE BENEFITS, RELEASE, & DEMAND', 20, yPosition)
+yPosition += 10
+
+doc.setFontSize(9)
+const consentText2 = `Insurer and Patient Please Read the Following in its Entirety Carefully!
+
+I, ${form.patientName || patient?.name || 'N/A'}, the undersigned patient/insured knowingly, voluntarily and intentionally assign the rights and benefits of my automobile Insurance, a/k/a Personal Injury Protection (hereinafter PIP), Uninsured Motorist, and Medical Payments policy of insurance to the above health care provider. I understand it is the intention of the provider to accept this assignment of benefits in lieu of demanding payment at the time services are rendered. I understand this document will allow the provider to file suit against an insurer for payment of the insurance benefits or an explanation of benefits and to seek §627.428 damages from the insurer.
+
+DISPUTES:
+The insurer is directed by the provider and the undersigned to not issue any checks or drafts in partial settlement of a claim that contain or are accompanied by language releasing the insurer or its insured/patient from liability unless there has been a prior written settlement agreed to by the health provider (specifically the office manager) and the insurer as to the amount payable under the insurance policy.
+
+EUOs and IMEs:
+If the insurer schedules a defense examination or examination under oath (hereinafter "EUO") the insurer is hereby INSTRUCTED to send a copy of said notification to this provider. The provider or the provider's attorney is expressly authorized to appear at any EUO or IME set by the insurer.
+
+RELEASE OF INFORMATION:
+I authorize this provider to: furnish an insurer, an insurer's intermediary, the patient's other medical providers, and the patient's attorney via mail, fax, or email, with any and all information that may be contained in the medical records; to obtain insurance coverage information (declaration sheet & policy of insurance) in writing and telephonically from the insurer.
+
+DEMAND:
+Demand is hereby made for the insurer to pay all bills within 30 days without reductions and to mail the latest non-redacted PIP payout sheet and the insurance coverage declaration sheet to the above provider within 15 days.
+
+CERTIFICATION:
+I certify that: I have read and agree to the above; I have not been solicited or promised anything in exchange for receiving health care; I have not received any promises or guarantees from anyone as to the results that may be obtained by any treatment or service; and I agree the provider's prices for medical services, treatment and supplies are reasonable, usual and customary.`
+
+// Split text into lines and add to PDF
+const lines2 = doc.splitTextToSize(consentText2, 170)
+for (const line of lines2) {
+  if (yPosition > 250) {
+    doc.addPage()
+    yPosition = 20
+  }
+  doc.text(line, 20, yPosition)
+  yPosition += 4
+}
+
+doc.setFontSize(10)
+yPosition += 5
+doc.text(`Insurance Assignment Consent: ${form.insuranceAssignmentConsent ? 'AGREED' : 'NOT AGREED'}`, 20, yPosition)
+yPosition += 15
+
+// Add new page for emergency medical condition
+doc.addPage()
+yPosition = 20
+
+// NOTICE OF EMERGENCY MEDICAL CONDITION SECTION
+doc.setFontSize(12)
+doc.text('NOTICE OF EMERGENCY MEDICAL CONDITION', 20, yPosition)
+yPosition += 10
+
+doc.setFontSize(9)
+const consentText3 = `The undersigned licensed medical provider, hereby asserts:
+
+1. The below patient, has in the opinion of this medical provider, suffered an Emergency Medical Condition, as a result of the patient's injuries sustained in an automobile accident that occurred on ${form.accidentDate || 'N/A'}.
+
+2. The Basis of the opinion for finding an Emergency Medical Condition is that the patient has sustained acute symptoms of sufficient severity, which may include severe pain, such that the absence of immediate medical attention could reasonably be expected to result in any of the following: a) serious jeopardy to patient health; b) serious impairment to bodily functions; or c) serious dysfunction of a bodily organ or part.
+
+The undersigned injured person or legal guardian of such person asserts:
+
+1. The symptoms I reported to the medical provider are true and accurate.
+
+2. I understand the medical provider has determined I sustained an Emergency Medical condition as a result of the injuries I suffered in the car accident.
+
+3. The medical provider has explained to my satisfaction the need for future medical attention and the harmful consequences to my health which may occur if I do not receive future treatment.`
+
+// Split text into lines and add to PDF
+const lines3 = doc.splitTextToSize(consentText3, 170)
+for (const line of lines3) {
+  if (yPosition > 250) {
+    doc.addPage()
+    yPosition = 20
+  }
+  doc.text(line, 20, yPosition)
+  yPosition += 4
+}
+
+doc.setFontSize(10)
+yPosition += 5
+doc.text(`Emergency Medical Condition Acknowledgment: ${form.emergencyMedicalConsent ? 'AGREED' : 'NOT AGREED'}`, 20, yPosition)
+yPosition += 15
+
+// Add new page for signature
+doc.addPage()
+yPosition = 20
+
+// Digital Signature
+doc.setFontSize(12)
+doc.text('Digital Signature:', 20, yPosition)
+yPosition += 10
+
+if (form.signature) {
+  doc.setFontSize(10)
+  doc.text('Patient has provided digital signature:', 20, yPosition)
+  yPosition += 10
+  
+  // Add signature image if available
+  try {
+    const img = new Image()
+    img.src = form.signature
+    doc.addImage(img, 'PNG', 20, yPosition, 100, 30)
+    yPosition += 35
+  } catch (error) {
+    console.log('Could not add signature image:', error)
+    doc.text('Digital signature provided but could not be displayed in PDF', 20, yPosition)
     yPosition += 10
+  }
+} else {
+  doc.text('No signature provided', 20, yPosition)
+  yPosition += 10
+}
 
-    doc.setFontSize(10)
-    doc.text(`Name: ${patient?.name || 'N/A'}`, 20, yPosition)
-    yPosition += 8
-    doc.text(`Phone: ${patient?.phone || 'N/A'}`, 20, yPosition)
-    yPosition += 8
-    doc.text(`Date of Birth: ${form.dateOfBirth || 'N/A'}`, 20, yPosition)
-    yPosition += 8
-    
-    // Format address from separate fields
-    const fullAddress = [
-      form.address,
-      form.city,
-      form.zipCode
-    ].filter(Boolean).join(', ')
-    
-    doc.text(`Address: ${fullAddress || 'N/A'}`, 20, yPosition)
-    yPosition += 15
+doc.setFontSize(9)
+doc.text(`Signed on: ${new Date().toLocaleString()}`, 20, yPosition)
 
-    // Consent Information
-    doc.setFontSize(12)
-    doc.text('Consents:', 20, yPosition)
-    yPosition += 10
-
-    doc.setFontSize(10)
-    doc.text(`Patient Name for Consent: ${form.patientName || 'N/A'}`, 20, yPosition)
-    yPosition += 8
-    doc.text(`New Patient Consent: ${form.newPatientConsent ? 'Yes' : 'No'}`, 20, yPosition)
-    yPosition += 8
-    doc.text(`Insurance Assignment Consent: ${form.insuranceAssignmentConsent ? 'Yes' : 'No'}`, 20, yPosition)
-    yPosition += 8
-    doc.text(`Emergency Medical Consent: ${form.emergencyMedicalConsent ? 'Yes' : 'No'}`, 20, yPosition)
-    yPosition += 8
-    doc.text(`Accident Date: ${form.accidentDate || 'N/A'}`, 20, yPosition)
-    yPosition += 15
-
-    // Signature
-    doc.setFontSize(12)
-    doc.text('Digital Signature:', 20, yPosition)
-    yPosition += 10
-
-    if (form.signature) {
-      doc.text('Patient has provided digital signature', 20, yPosition)
-    } else {
-      doc.text('No signature provided', 20, yPosition)
-    }
-
-    console.log('Generated PDF')
+console.log('Generated PDF')
 
     // Save PDF to storage
 const pdfArrayBuffer = doc.output('arraybuffer') as ArrayBuffer
