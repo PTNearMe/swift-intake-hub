@@ -707,13 +707,20 @@ async function sendEmailWithAttachment(patientName: string, pdfBuffer: Uint8Arra
     throw new Error('SENDGRID_API_KEY not configured');
   }
 
-  // Use verified sender email from SendGrid or fallback to a safer default
-  const fromEmail = 'onboarding@resend.dev'; // This is a commonly verified domain
-  const toEmail = 'test@example.com'; // This needs to be configured by the user
+  // Use proper email addresses for H1 Med
+  const fromEmail = 'noreply@h1med.com'; // This should be verified in SendGrid
+  const toEmail = 'intake@h1med.com'; // Target email as requested
 
   console.log(`Preparing to send email from ${fromEmail} to ${toEmail}`);
 
-  const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
+  // Fix the base64 conversion to handle large PDFs properly
+  // Convert Uint8Array to base64 without using spread operator
+  let binary = '';
+  const len = pdfBuffer.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(pdfBuffer[i]);
+  }
+  const base64Pdf = btoa(binary);
   
   const emailData = {
     personalizations: [
