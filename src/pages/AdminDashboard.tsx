@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { Search, Download, Users, FileText, CheckCircle, Clock } from 'lucide-react';
+import { Search, Download, Users, FileText, CheckCircle, Clock, ExternalLink } from 'lucide-react';
 
 interface Patient {
   id: string;
@@ -25,6 +25,7 @@ interface IntakeForm {
   email_sent: boolean;
   fax_sent: boolean;
   created_at: string;
+  doxy_redirect_at: string | null;
   patients: Patient;
 }
 
@@ -60,6 +61,7 @@ const AdminDashboard = () => {
           email_sent,
           fax_sent,
           created_at,
+          doxy_redirect_at,
           patients (
             id,
             name,
@@ -232,8 +234,9 @@ const AdminDashboard = () => {
                     <TableHead>Patient Name</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Signed</TableHead>
+                    <TableHead>Form Started</TableHead>
+                    <TableHead>Completed</TableHead>
+                    <TableHead>Doxy Redirect</TableHead>
                     <TableHead>Email/Fax</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -255,13 +258,25 @@ const AdminDashboard = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {format(new Date(form.created_at), 'MMM dd, yyyy')}
+                        {format(new Date(form.created_at), 'MMM dd, yyyy HH:mm')}
                       </TableCell>
                       <TableCell>
                         {form.signed_at 
-                          ? format(new Date(form.signed_at), 'MMM dd, yyyy')
-                          : 'Not signed'
+                          ? format(new Date(form.signed_at), 'MMM dd, yyyy HH:mm')
+                          : 'Not completed'
                         }
+                      </TableCell>
+                      <TableCell>
+                        {form.doxy_redirect_at ? (
+                          <div className="flex items-center space-x-1">
+                            <ExternalLink className="h-3 w-3 text-green-600" />
+                            <span className="text-xs text-green-600">
+                              {format(new Date(form.doxy_redirect_at), 'MMM dd, HH:mm')}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No redirect</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">

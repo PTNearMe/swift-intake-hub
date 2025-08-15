@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { CheckCircle, Home, ExternalLink, Clock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const IntakeComplete = () => {
   const [searchParams] = useSearchParams();
@@ -13,21 +14,39 @@ const IntakeComplete = () => {
 
   const telemedicineUrl = "https://h1medical.doxy.me/intake1";
 
+  const trackDoxyRedirect = async () => {
+    if (patientId) {
+      try {
+        await supabase
+          .from('intake_forms')
+          .update({ doxy_redirect_at: new Date().toISOString() })
+          .eq('patient_id', patientId);
+      } catch (error) {
+        console.error('Error tracking doxy redirect:', error);
+      }
+    }
+  };
+
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
     } else {
-      // Start redirect
-      setIsRedirecting(true);
-      // Small delay to show the "Redirecting..." message
-      setTimeout(() => {
-        window.location.href = telemedicineUrl;
-      }, 500);
+      handleAutoRedirect();
     }
   }, [countdown]);
 
-  const handleManualRedirect = () => {
+  const handleAutoRedirect = async () => {
+    setIsRedirecting(true);
+    await trackDoxyRedirect();
+    // Small delay to show the "Redirecting..." message
+    setTimeout(() => {
+      window.location.href = telemedicineUrl;
+    }, 500);
+  };
+
+  const handleManualRedirect = async () => {
+    await trackDoxyRedirect();
     window.open(telemedicineUrl, '_blank');
   };
 

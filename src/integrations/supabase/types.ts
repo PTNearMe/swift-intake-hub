@@ -46,6 +46,7 @@ export type Database = {
       intake_forms: {
         Row: {
           created_at: string | null
+          doxy_redirect_at: string | null
           email_sent: boolean | null
           fax_sent: boolean | null
           form_data: Json | null
@@ -57,6 +58,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          doxy_redirect_at?: string | null
           email_sent?: boolean | null
           fax_sent?: boolean | null
           form_data?: Json | null
@@ -68,6 +70,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          doxy_redirect_at?: string | null
           email_sent?: boolean | null
           fax_sent?: boolean | null
           form_data?: Json | null
