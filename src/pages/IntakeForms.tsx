@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -21,8 +20,8 @@ const formSchema = z.object({
   // Personal Information
   dateOfBirth: z.string().min(1, "Date of birth is required"),
   address: z.string().min(1, "Address is required"),
-  emergencyContactName: z.string().min(1, "Emergency contact name is required"),
-  emergencyContactPhone: z.string().min(1, "Emergency contact phone is required"),
+  city: z.string().min(1, "City is required"),
+  zipCode: z.string().min(5, "Zip code must be at least 5 characters"),
   
   // New Patient Consents
   newPatientConsent: z.boolean().refine(val => val === true, "New Patient Consent is required"),
@@ -364,10 +363,10 @@ const IntakeForms = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="address">Address *</Label>
-                  <Textarea
+                  <Label htmlFor="address">Street Address *</Label>
+                  <Input
                     id="address"
-                    placeholder="Street address, city, state, zip code"
+                    placeholder="Enter your street address"
                     {...register("address")}
                     disabled={isLocked}
                     className={errors.address ? "border-destructive" : ""}
@@ -379,29 +378,30 @@ const IntakeForms = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="emergencyContactName">Emergency Contact Name *</Label>
+                    <Label htmlFor="city">City *</Label>
                     <Input
-                      id="emergencyContactName"
-                      {...register("emergencyContactName")}
+                      id="city"
+                      placeholder="Enter your city"
+                      {...register("city")}
                       disabled={isLocked}
-                      className={errors.emergencyContactName ? "border-destructive" : ""}
+                      className={errors.city ? "border-destructive" : ""}
                     />
-                    {errors.emergencyContactName && (
-                      <p className="text-sm text-destructive">{errors.emergencyContactName.message}</p>
+                    {errors.city && (
+                      <p className="text-sm text-destructive">{errors.city.message}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="emergencyContactPhone">Emergency Contact Phone *</Label>
+                    <Label htmlFor="zipCode">Zip Code *</Label>
                     <Input
-                      id="emergencyContactPhone"
-                      type="tel"
-                      {...register("emergencyContactPhone")}
+                      id="zipCode"
+                      placeholder="Enter your zip code"
+                      {...register("zipCode")}
                       disabled={isLocked}
-                      className={errors.emergencyContactPhone ? "border-destructive" : ""}
+                      className={errors.zipCode ? "border-destructive" : ""}
                     />
-                    {errors.emergencyContactPhone && (
-                      <p className="text-sm text-destructive">{errors.emergencyContactPhone.message}</p>
+                    {errors.zipCode && (
+                      <p className="text-sm text-destructive">{errors.zipCode.message}</p>
                     )}
                   </div>
                 </div>
