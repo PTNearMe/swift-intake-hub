@@ -384,7 +384,8 @@ const IntakeForms = () => {
                   <div className="flex items-start space-x-3">
                     <Checkbox
                       id="consentTreatment"
-                      {...register("consentTreatment")}
+                      checked={watch("consentTreatment") || false}
+                      onCheckedChange={(checked) => setValue("consentTreatment", !!checked)}
                       disabled={isLocked}
                     />
                     <Label htmlFor="consentTreatment" className="text-sm leading-5">
@@ -398,7 +399,8 @@ const IntakeForms = () => {
                   <div className="flex items-start space-x-3">
                     <Checkbox
                       id="consentPrivacy"
-                      {...register("consentPrivacy")}
+                      checked={watch("consentPrivacy") || false}
+                      onCheckedChange={(checked) => setValue("consentPrivacy", !!checked)}
                       disabled={isLocked}
                     />
                     <Label htmlFor="consentPrivacy" className="text-sm leading-5">
@@ -412,7 +414,8 @@ const IntakeForms = () => {
                   <div className="flex items-start space-x-3">
                     <Checkbox
                       id="consentFinancial"
-                      {...register("consentFinancial")}
+                      checked={watch("consentFinancial") || false}
+                      onCheckedChange={(checked) => setValue("consentFinancial", !!checked)}
                       disabled={isLocked}
                     />
                     <Label htmlFor="consentFinancial" className="text-sm leading-5">
