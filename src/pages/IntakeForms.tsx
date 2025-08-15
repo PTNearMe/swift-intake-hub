@@ -122,12 +122,15 @@ const IntakeForms = () => {
     }
 
     setIsSubmitting(true);
+    console.log("Starting form submission for patient:", patientId);
     
     try {
       const formData = {
         ...data,
         signature,
       };
+
+      console.log("Attempting to save intake form with data:", formData);
 
       const { data: insertedForm, error } = await supabase
         .from("intake_forms")
@@ -144,14 +147,21 @@ const IntakeForms = () => {
         .single();
 
       if (error) {
-        console.error("Error saving forms:", error);
+        console.error("Database error details:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         toast({
-          title: "Error",
-          description: "Failed to save forms. Please try again.",
+          title: "Error Saving Form",
+          description: `Failed to save forms: ${error.message}. Please try again.`,
           variant: "destructive",
         });
         return;
       }
+
+      console.log("Form saved successfully:", insertedForm);
 
       setIsLocked(true);
 

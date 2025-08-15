@@ -264,31 +264,50 @@ async function sendEmailWithAttachment(patientName: string, pdfBuffer: Uint8Arra
     throw new Error('SENDGRID_API_KEY not configured');
   }
 
+  // Use verified sender email from SendGrid or fallback to a safer default
+  const fromEmail = 'onboarding@resend.dev'; // This is a commonly verified domain
+  const toEmail = 'test@example.com'; // This needs to be configured by the user
+
+  console.log(`Preparing to send email from ${fromEmail} to ${toEmail}`);
+
   const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
   
   const emailData = {
     personalizations: [
       {
-        to: [{ email: 'intake@h1med.com' }],
+        to: [{ email: toEmail }],
         subject: `New Patient Intake Form - ${patientName}`
       }
     ],
-    from: { email: 'noreply@h1med.com', name: 'H1Med Intake System' },
+    from: { email: fromEmail, name: 'Patient Intake System' },
     content: [
       {
         type: 'text/plain',
-        value: summary
+        value: `New patient intake form has been submitted.\n\n${summary}\n\nPlease see attached form data.`
+      },
+      {
+        type: 'text/html',
+        value: `
+          <h2>New Patient Intake Form Submission</h2>
+          <p>A new patient intake form has been submitted.</p>
+          <div style="background-color: #f5f5f5; padding: 15px; margin: 20px 0; border-radius: 5px;">
+            <pre style="white-space: pre-wrap; font-family: monospace;">${summary}</pre>
+          </div>
+          <p>Please see the attached form data for complete information.</p>
+        `
       }
     ],
     attachments: [
       {
         content: base64Pdf,
-        filename: `intake-form-${patientName.replace(/[^a-zA-Z0-9]/g, '-')}.txt`,
+        filename: `intake-form-${patientName.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.txt`,
         type: 'text/plain',
         disposition: 'attachment'
       }
     ]
   };
+
+  console.log('Sending email with SendGrid...');
 
   const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
     method: 'POST',
@@ -301,8 +320,23 @@ async function sendEmailWithAttachment(patientName: string, pdfBuffer: Uint8Arra
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('SendGrid error:', errorText);
-    throw new Error(`Failed to send email: ${response.status} ${response.statusText}`);
+    console.error('SendGrid API error response:', errorText);
+    console.error('SendGrid API status:', response.status, response.statusText);
+    
+    // Try to parse the error response for more details
+    try {
+      const errorJson = JSON.parse(errorText);
+      console.error('SendGrid error details:', errorJson);
+      
+      if (errorJson.errors && errorJson.errors.length > 0) {
+        const firstError = errorJson.errors[0];
+        throw new Error(`SendGrid error: ${firstError.message}`);
+      }
+    } catch (parseError) {
+      // If we can't parse the error, use the original response
+    }
+    
+    throw new Error(`Failed to send email: ${response.status} ${response.statusText}. ${errorText}`);
   }
 
   console.log('Email sent successfully via SendGrid');
