@@ -111,8 +111,42 @@ const AdminDashboard = () => {
     (form.patients.phone && form.patients.phone.includes(searchTerm))
   );
 
-  const handleDownloadPdf = (pdfUrl: string, patientName: string) => {
-    window.open(pdfUrl, '_blank');
+  const handleDownloadPdf = async (pdfUrl: string, patientName: string) => {
+    try {
+      // Create a filename from patient name and timestamp
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `${patientName.replace(/[^a-zA-Z0-9]/g, '_')}_intake_form_${timestamp}.pdf`;
+      
+      // Fetch the PDF file
+      const response = await fetch(pdfUrl);
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Success",
+        description: "PDF download started",
+      });
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to download PDF",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleLogout = async () => {
