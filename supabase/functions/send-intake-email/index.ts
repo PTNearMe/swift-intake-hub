@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import jsPDF from "https://esm.sh/jspdf@2.5.1";
+import { Resend } from "npm:resend@2.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -130,7 +131,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Try to send email but don't fail if it doesn't work
     let emailSent = false;
     try {
-      await sendEmailWithAttachment(patient.name, pdfBuffer, generateEmailSummary(intakeForm.form_data));
+      await sendEmailWithResend(patient.name, pdfBuffer, generateEmailSummary(intakeForm.form_data));
       console.log('Email sent successfully');
       emailSent = true;
     } catch (emailError: any) {
@@ -700,96 +701,56 @@ This form was submitted through the secure patient intake system.
   return summary;
 }
 
-async function sendEmailWithAttachment(patientName: string, pdfBuffer: Uint8Array, summary: string) {
-  const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY');
+async function sendEmailWithResend(patientName: string, pdfBuffer: Uint8Array, summary: string): Promise<void> {
+  const resendApiKey = Deno.env.get('RESEND_API_KEY');
   
-  if (!sendgridApiKey) {
-    throw new Error('SENDGRID_API_KEY not configured');
+  if (!resendApiKey) {
+    throw new Error('RESEND_API_KEY not configured');
   }
 
-  // Use proper email addresses for H1 Med
-  const fromEmail = 'noreply@h1med.com'; // This should be verified in SendGrid
-  const toEmail = 'intake@h1med.com'; // Target email as requested
+  const resend = new Resend(resendApiKey);
 
-  console.log(`Preparing to send email from ${fromEmail} to ${toEmail}`);
+  console.log('Preparing to send email from noreply@h1med.com to intake@h1med.com');
 
-  // Fix the base64 conversion to handle large PDFs properly
-  // Convert Uint8Array to base64 without using spread operator
-  let binary = '';
-  const len = pdfBuffer.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(pdfBuffer[i]);
-  }
-  const base64Pdf = btoa(binary);
-  
-  const emailData = {
-    personalizations: [
-      {
-        to: [{ email: toEmail }],
-        subject: `New Patient Intake Form - ${patientName}`
-      }
-    ],
-    from: { email: fromEmail, name: 'Patient Intake System' },
-    content: [
-      {
-        type: 'text/plain',
-        value: `New patient intake form has been submitted.\n\n${summary}\n\nPlease see attached form data.`
-      },
-      {
-        type: 'text/html',
-        value: `
-          <h2>New Patient Intake Form Submission</h2>
-          <p>A new patient intake form has been submitted.</p>
-          <div style="background-color: #f5f5f5; padding: 15px; margin: 20px 0; border-radius: 5px;">
-            <pre style="white-space: pre-wrap; font-family: monospace;">${summary}</pre>
+  try {
+    const emailResponse = await resend.emails.send({
+      from: 'noreply@h1med.com',
+      to: ['intake@h1med.com'],
+      subject: `New Patient Intake Form - ${patientName}`,
+      text: `New patient intake form has been submitted.\n\n${summary}\n\nPlease see attached form data.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">
+            New Patient Intake Form Submission
+          </h2>
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #0066cc; margin-top: 0;">Patient: ${patientName}</h3>
+            <p><strong>Submission Date:</strong> ${new Date().toLocaleDateString()}</p>
           </div>
-          <p>Please see the attached form data for complete information.</p>
-        `
-      }
-    ],
-    attachments: [
-      {
-        content: base64Pdf,
-        filename: `intake-form-${patientName.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`,
-        type: 'application/pdf',
-        disposition: 'attachment'
-      }
-    ]
-  };
+          <div style="background-color: #fff; border: 1px solid #ddd; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; line-height: 1.4;">${summary}</pre>
+          </div>
+          <div style="background-color: #f0f8ff; padding: 10px; border-radius: 5px; border-left: 4px solid #0066cc;">
+            <p style="margin: 0; font-size: 12px; color: #666;">
+              This is an automated message from the Health One Medical Center intake system.
+              Please see the attached PDF for the complete intake form.
+            </p>
+          </div>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: `intake-form-${patientName.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`,
+          content: Array.from(pdfBuffer),
+        },
+      ],
+    });
 
-  console.log('Sending email with SendGrid...');
-
-  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${sendgridApiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(emailData)
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('SendGrid API error response:', errorText);
-    console.error('SendGrid API status:', response.status, response.statusText);
-    
-    // Try to parse the error response for more details
-    try {
-      const errorJson = JSON.parse(errorText);
-      console.error('SendGrid error details:', errorJson);
-      
-      if (errorJson.errors && errorJson.errors.length > 0) {
-        const firstError = errorJson.errors[0];
-        throw new Error(`SendGrid error: ${firstError.message}`);
-      }
-    } catch (parseError) {
-      // If we can't parse the error, use the original response
-    }
-    
-    throw new Error(`Failed to send email: ${response.status} ${response.statusText}. ${errorText}`);
+    console.log('Resend email sent successfully:', emailResponse.id);
+  } catch (error: any) {
+    console.error('Resend API error:', error);
+    throw new Error(`Failed to send email via Resend: ${error.message}`);
   }
-
-  console.log('Email sent successfully via SendGrid');
 }
 
 serve(handler);
