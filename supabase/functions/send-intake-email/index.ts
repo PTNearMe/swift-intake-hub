@@ -49,18 +49,43 @@ serve(async (req) => {
 const doc = new jsPDF()
 let yPosition = 20
 
+// Helper function to add signature image
+const addSignatureImage = (x: number, y: number, width: number = 80, height: number = 25) => {
+  if (form.signature) {
+    try {
+      doc.addImage(form.signature, 'PNG', x, y, width, height)
+      return height + 5
+    } catch (error) {
+      console.log('Could not add signature image:', error)
+      doc.setFontSize(8)
+      doc.text('[Digital Signature]', x, y + 10)
+      return 15
+    }
+  } else {
+    doc.setFontSize(8)
+    doc.text('[No Signature]', x, y + 10)
+    return 15
+  }
+}
+
 // Title
 doc.setFontSize(16)
+doc.setFont(undefined, 'bold')
 doc.text('Patient Intake Forms - Health One Medical Center', 20, yPosition)
+doc.setFont(undefined, 'normal')
 yPosition += 20
 
 // Patient Information
 doc.setFontSize(14)
+doc.setFont(undefined, 'bold')
 doc.text('Patient Information:', 20, yPosition)
+doc.setFont(undefined, 'normal')
 yPosition += 10
 
 doc.setFontSize(10)
+doc.setFont(undefined, 'bold')
 doc.text(`Name: ${patient?.name || 'N/A'}`, 20, yPosition)
+doc.setFont(undefined, 'normal')
 yPosition += 8
 doc.text(`Phone: ${patient?.phone || 'N/A'}`, 20, yPosition)
 yPosition += 8
@@ -81,13 +106,16 @@ yPosition += 15
 
 // NEW PATIENT CONSENT SECTION
 doc.setFontSize(12)
+doc.setFont(undefined, 'bold')
 doc.text('NEW PATIENT CONSENT TO THE USE AND DISCLOSE OF', 20, yPosition)
 yPosition += 6
 doc.text('HEALTHCARE INFORMATION FOR TREATMENT, PAYMENT, OR HEALTHCARE OPERATIONS', 20, yPosition)
+doc.setFont(undefined, 'normal')
 yPosition += 10
 
 doc.setFontSize(9)
-const consentText1 = `I ${form.patientName || patient?.name || 'N/A'}, understand that as part of my healthcare. HEALTH ONE MEDICAL CENTER, originates and maintains paper and/or electronic records describing my health history, symptoms, examination and test results, diagnosis, treatment, and any plans for further care of treatment.
+const patientNameBold = form.patientName || patient?.name || 'N/A'
+const consentText1 = `I ${patientNameBold}, understand that as part of my healthcare. HEALTH ONE MEDICAL CENTER, originates and maintains paper and/or electronic records describing my health history, symptoms, examination and test results, diagnosis, treatment, and any plans for further care of treatment.
 
 I understand that this information serves as:
 • A basis for planning my care and treatment.
@@ -111,21 +139,50 @@ I understand that as part of my organization's, treatment, payment, or healthcar
 
 I fully understand and accept these terms of consent.`
 
-// Split text into lines and add to PDF
+// Split text into lines and add to PDF with bold formatting for patient name and medical center
 const lines1 = doc.splitTextToSize(consentText1, 170)
 for (const line of lines1) {
-  if (yPosition > 250) {
+  if (yPosition > 240) {
     doc.addPage()
     yPosition = 20
   }
-  doc.text(line, 20, yPosition)
+  
+  // Check if line contains patient name or medical center and make them bold
+  if (line.includes(patientNameBold) || line.includes('HEALTH ONE MEDICAL CENTER')) {
+    const pattern = new RegExp(`(HEALTH ONE MEDICAL CENTER|${patientNameBold.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g')
+    const parts = line.split(pattern)
+    let xPosition = 20
+    
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      if (part === 'HEALTH ONE MEDICAL CENTER' || part === patientNameBold) {
+        doc.setFont(undefined, 'bold')
+        doc.text(part, xPosition, yPosition)
+        doc.setFont(undefined, 'normal')
+      } else if (part) {
+        doc.text(part, xPosition, yPosition)
+      }
+      xPosition += doc.getTextWidth(part)
+    }
+  } else {
+    doc.text(line, 20, yPosition)
+  }
   yPosition += 4
 }
 
 doc.setFontSize(10)
 yPosition += 5
+doc.setFont(undefined, 'bold')
 doc.text(`Patient Consent: ${form.newPatientConsent ? 'AGREED' : 'NOT AGREED'}`, 20, yPosition)
-yPosition += 15
+doc.setFont(undefined, 'normal')
+yPosition += 8
+
+// Add signature for consent 1
+doc.setFontSize(9)
+doc.text('Patient Signature:', 20, yPosition)
+yPosition += 5
+const signatureHeight1 = addSignatureImage(20, yPosition)
+yPosition += signatureHeight1 + 10
 
 // Add new page for insurance assignment
 doc.addPage()
@@ -133,13 +190,15 @@ yPosition = 20
 
 // ASSIGNMENT OF INSURANCE BENEFITS SECTION
 doc.setFontSize(12)
+doc.setFont(undefined, 'bold')
 doc.text('ASSIGNMENT OF INSURANCE BENEFITS, RELEASE, & DEMAND', 20, yPosition)
+doc.setFont(undefined, 'normal')
 yPosition += 10
 
 doc.setFontSize(9)
 const consentText2 = `Insurer and Patient Please Read the Following in its Entirety Carefully!
 
-I, ${form.patientName || patient?.name || 'N/A'}, the undersigned patient/insured knowingly, voluntarily and intentionally assign the rights and benefits of my automobile Insurance, a/k/a Personal Injury Protection (hereinafter PIP), Uninsured Motorist, and Medical Payments policy of insurance to the above health care provider. I understand it is the intention of the provider to accept this assignment of benefits in lieu of demanding payment at the time services are rendered. I understand this document will allow the provider to file suit against an insurer for payment of the insurance benefits or an explanation of benefits and to seek §627.428 damages from the insurer.
+I, ${patientNameBold}, the undersigned patient/insured knowingly, voluntarily and intentionally assign the rights and benefits of my automobile Insurance, a/k/a Personal Injury Protection (hereinafter PIP), Uninsured Motorist, and Medical Payments policy of insurance to the above health care provider. I understand it is the intention of the provider to accept this assignment of benefits in lieu of demanding payment at the time services are rendered. I understand this document will allow the provider to file suit against an insurer for payment of the insurance benefits or an explanation of benefits and to seek §627.428 damages from the insurer.
 
 DISPUTES:
 The insurer is directed by the provider and the undersigned to not issue any checks or drafts in partial settlement of a claim that contain or are accompanied by language releasing the insurer or its insured/patient from liability unless there has been a prior written settlement agreed to by the health provider (specifically the office manager) and the insurer as to the amount payable under the insurance policy.
@@ -159,18 +218,46 @@ I certify that: I have read and agree to the above; I have not been solicited or
 // Split text into lines and add to PDF
 const lines2 = doc.splitTextToSize(consentText2, 170)
 for (const line of lines2) {
-  if (yPosition > 250) {
+  if (yPosition > 240) {
     doc.addPage()
     yPosition = 20
   }
-  doc.text(line, 20, yPosition)
+  
+  // Bold patient name in insurance section
+  if (line.includes(patientNameBold)) {
+    const parts = line.split(patientNameBold)
+    let xPosition = 20
+    
+    doc.text(parts[0], xPosition, yPosition)
+    xPosition += doc.getTextWidth(parts[0])
+    
+    doc.setFont(undefined, 'bold')
+    doc.text(patientNameBold, xPosition, yPosition)
+    doc.setFont(undefined, 'normal')
+    xPosition += doc.getTextWidth(patientNameBold)
+    
+    if (parts[1]) {
+      doc.text(parts[1], xPosition, yPosition)
+    }
+  } else {
+    doc.text(line, 20, yPosition)
+  }
   yPosition += 4
 }
 
 doc.setFontSize(10)
 yPosition += 5
+doc.setFont(undefined, 'bold')
 doc.text(`Insurance Assignment Consent: ${form.insuranceAssignmentConsent ? 'AGREED' : 'NOT AGREED'}`, 20, yPosition)
-yPosition += 15
+doc.setFont(undefined, 'normal')
+yPosition += 8
+
+// Add signature for consent 2
+doc.setFontSize(9)
+doc.text('Patient Signature:', 20, yPosition)
+yPosition += 5
+const signatureHeight2 = addSignatureImage(20, yPosition)
+yPosition += signatureHeight2 + 10
 
 // Add new page for emergency medical condition
 doc.addPage()
@@ -178,7 +265,9 @@ yPosition = 20
 
 // NOTICE OF EMERGENCY MEDICAL CONDITION SECTION
 doc.setFontSize(12)
+doc.setFont(undefined, 'bold')
 doc.text('NOTICE OF EMERGENCY MEDICAL CONDITION', 20, yPosition)
+doc.setFont(undefined, 'normal')
 yPosition += 10
 
 doc.setFontSize(9)
@@ -199,7 +288,7 @@ The undersigned injured person or legal guardian of such person asserts:
 // Split text into lines and add to PDF
 const lines3 = doc.splitTextToSize(consentText3, 170)
 for (const line of lines3) {
-  if (yPosition > 250) {
+  if (yPosition > 240) {
     doc.addPage()
     yPosition = 20
   }
@@ -209,41 +298,20 @@ for (const line of lines3) {
 
 doc.setFontSize(10)
 yPosition += 5
+doc.setFont(undefined, 'bold')
 doc.text(`Emergency Medical Condition Acknowledgment: ${form.emergencyMedicalConsent ? 'AGREED' : 'NOT AGREED'}`, 20, yPosition)
-yPosition += 15
+doc.setFont(undefined, 'normal')
+yPosition += 8
 
-// Add new page for signature
-doc.addPage()
-yPosition = 20
-
-// Digital Signature
-doc.setFontSize(12)
-doc.text('Digital Signature:', 20, yPosition)
-yPosition += 10
-
-if (form.signature) {
-  doc.setFontSize(10)
-  doc.text('Patient has provided digital signature:', 20, yPosition)
-  yPosition += 10
-  
-  // Add signature image if available
-  try {
-    const img = new Image()
-    img.src = form.signature
-    doc.addImage(img, 'PNG', 20, yPosition, 100, 30)
-    yPosition += 35
-  } catch (error) {
-    console.log('Could not add signature image:', error)
-    doc.text('Digital signature provided but could not be displayed in PDF', 20, yPosition)
-    yPosition += 10
-  }
-} else {
-  doc.text('No signature provided', 20, yPosition)
-  yPosition += 10
-}
-
+// Add signature for consent 3
 doc.setFontSize(9)
-doc.text(`Signed on: ${new Date().toLocaleString()}`, 20, yPosition)
+doc.text('Patient Signature:', 20, yPosition)
+yPosition += 5
+const signatureHeight3 = addSignatureImage(20, yPosition)
+yPosition += signatureHeight3 + 5
+
+doc.setFontSize(8)
+doc.text(`Date Signed: ${new Date().toLocaleDateString()}`, 20, yPosition)
 
 console.log('Generated PDF')
 
