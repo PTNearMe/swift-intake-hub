@@ -1,17 +1,478 @@
-import { useSearchParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
+import { SignaturePad } from "@/components/SignaturePad";
+import { CalendarDays, User, Phone, MapPin, AlertCircle } from "lucide-react";
+
+const formSchema = z.object({
+  // Personal Information
+  dateOfBirth: z.string().min(1, "Date of birth is required"),
+  address: z.string().min(1, "Address is required"),
+  emergencyContactName: z.string().min(1, "Emergency contact name is required"),
+  emergencyContactPhone: z.string().min(1, "Emergency contact phone is required"),
+  
+  // Medical History
+  currentMedications: z.string(),
+  allergies: z.string(),
+  medicalHistory: z.string(),
+  
+  // Insurance Information
+  insuranceProvider: z.string().min(1, "Insurance provider is required"),
+  policyNumber: z.string().min(1, "Policy number is required"),
+  groupNumber: z.string(),
+  
+  // Consents
+  consentTreatment: z.boolean().refine(val => val === true, "Treatment consent is required"),
+  consentPrivacy: z.boolean().refine(val => val === true, "Privacy consent is required"),
+  consentFinancial: z.boolean().refine(val => val === true, "Financial consent is required"),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 const IntakeForms = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const patientId = searchParams.get("patientId");
+  const { toast } = useToast();
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [existingForm, setExistingForm] = useState<any>(null);
+  const [isLocked, setIsLocked] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = 4;
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+  });
+
+  // Redirect if no patient ID
+  useEffect(() => {
+    if (!patientId) {
+      navigate("/intake/start");
+      return;
+    }
+    
+    // Check if forms already exist for this patient
+    checkExistingForms();
+  }, [patientId]);
+
+  const checkExistingForms = async () => {
+    if (!patientId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("intake_forms")
+        .select("*")
+        .eq("patient_id", patientId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error checking existing forms:", error);
+        return;
+      }
+
+      if (data) {
+        setExistingForm(data);
+        setIsLocked(!!data.signed_at);
+        
+        // Populate form with existing data
+        if (data.form_data) {
+          Object.entries(data.form_data).forEach(([key, value]) => {
+            if (key === 'signature') {
+              setSignature(value as string);
+            } else {
+              setValue(key as keyof FormData, value as any);
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching existing forms:", error);
+    }
+  };
+
+  const onSubmit = async (data: FormData) => {
+    if (!patientId) return;
+    
+    if (!signature) {
+      toast({
+        title: "Signature Required",
+        description: "Please provide your digital signature to complete the forms.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      const formData = {
+        ...data,
+        signature,
+      };
+
+      const { error } = await supabase
+        .from("intake_forms")
+        .upsert([
+          {
+            patient_id: patientId,
+            form_data: formData,
+            signed_at: new Date().toISOString(),
+            fax_sent: false,
+            email_sent: false,
+          },
+        ]);
+
+      if (error) {
+        console.error("Error saving forms:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save forms. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setIsLocked(true);
+      toast({
+        title: "Forms Completed",
+        description: "Your intake forms have been successfully submitted.",
+      });
+
+      // Navigate to completion page after a delay
+      setTimeout(() => {
+        navigate(`/intake/complete?patientId=${patientId}`);
+      }, 2000);
+
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const progress = (currentStep / totalSteps) * 100;
+
+  if (!patientId) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 text-foreground">Medical Forms</h1>
-        <p className="text-xl text-muted-foreground mb-4">
-          Patient ID: {patientId}
-        </p>
-        <p className="text-lg text-muted-foreground">Coming Soon...</p>
+    <div className="min-h-screen bg-background py-4 px-4">
+      <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+            Patient Intake Forms
+          </h1>
+          <Progress value={progress} className="w-full max-w-md mx-auto" />
+          <p className="text-sm text-muted-foreground mt-2">
+            Step {currentStep} of {totalSteps}
+          </p>
+        </div>
+
+        {isLocked && (
+          <Card className="mb-6 border-green-200 bg-green-50 dark:bg-green-900/20">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2 text-green-700 dark:text-green-400">
+                <AlertCircle className="h-5 w-5" />
+                <p className="font-medium">Forms Completed</p>
+              </div>
+              <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                Your intake forms have been submitted and locked for editing.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Personal Information */}
+          {currentStep >= 1 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <User className="h-5 w-5 text-primary" />
+                  <span>Personal Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="dateOfBirth">Date of Birth *</Label>
+                    <Input
+                      id="dateOfBirth"
+                      type="date"
+                      {...register("dateOfBirth")}
+                      disabled={isLocked}
+                      className={errors.dateOfBirth ? "border-destructive" : ""}
+                    />
+                    {errors.dateOfBirth && (
+                      <p className="text-sm text-destructive">{errors.dateOfBirth.message}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address *</Label>
+                  <Textarea
+                    id="address"
+                    placeholder="Street address, city, state, zip code"
+                    {...register("address")}
+                    disabled={isLocked}
+                    className={errors.address ? "border-destructive" : ""}
+                  />
+                  {errors.address && (
+                    <p className="text-sm text-destructive">{errors.address.message}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="emergencyContactName">Emergency Contact Name *</Label>
+                    <Input
+                      id="emergencyContactName"
+                      {...register("emergencyContactName")}
+                      disabled={isLocked}
+                      className={errors.emergencyContactName ? "border-destructive" : ""}
+                    />
+                    {errors.emergencyContactName && (
+                      <p className="text-sm text-destructive">{errors.emergencyContactName.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="emergencyContactPhone">Emergency Contact Phone *</Label>
+                    <Input
+                      id="emergencyContactPhone"
+                      type="tel"
+                      {...register("emergencyContactPhone")}
+                      disabled={isLocked}
+                      className={errors.emergencyContactPhone ? "border-destructive" : ""}
+                    />
+                    {errors.emergencyContactPhone && (
+                      <p className="text-sm text-destructive">{errors.emergencyContactPhone.message}</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Medical History */}
+          {currentStep >= 2 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <CalendarDays className="h-5 w-5 text-primary" />
+                  <span>Medical History</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="currentMedications">Current Medications</Label>
+                  <Textarea
+                    id="currentMedications"
+                    placeholder="List all medications you are currently taking"
+                    {...register("currentMedications")}
+                    disabled={isLocked}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="allergies">Allergies</Label>
+                  <Textarea
+                    id="allergies"
+                    placeholder="List any known allergies"
+                    {...register("allergies")}
+                    disabled={isLocked}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="medicalHistory">Previous Medical History</Label>
+                  <Textarea
+                    id="medicalHistory"
+                    placeholder="Describe any previous medical conditions or surgeries"
+                    {...register("medicalHistory")}
+                    disabled={isLocked}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Insurance Information */}
+          {currentStep >= 3 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <MapPin className="h-5 w-5 text-primary" />
+                  <span>Insurance Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="insuranceProvider">Insurance Provider *</Label>
+                  <Input
+                    id="insuranceProvider"
+                    placeholder="e.g., Blue Cross Blue Shield"
+                    {...register("insuranceProvider")}
+                    disabled={isLocked}
+                    className={errors.insuranceProvider ? "border-destructive" : ""}
+                  />
+                  {errors.insuranceProvider && (
+                    <p className="text-sm text-destructive">{errors.insuranceProvider.message}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="policyNumber">Policy Number *</Label>
+                    <Input
+                      id="policyNumber"
+                      {...register("policyNumber")}
+                      disabled={isLocked}
+                      className={errors.policyNumber ? "border-destructive" : ""}
+                    />
+                    {errors.policyNumber && (
+                      <p className="text-sm text-destructive">{errors.policyNumber.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="groupNumber">Group Number</Label>
+                    <Input
+                      id="groupNumber"
+                      {...register("groupNumber")}
+                      disabled={isLocked}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Consents and Signature */}
+          {currentStep >= 4 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Consents & Signature</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-start space-x-3">
+                    <Checkbox
+                      id="consentTreatment"
+                      {...register("consentTreatment")}
+                      disabled={isLocked}
+                    />
+                    <Label htmlFor="consentTreatment" className="text-sm leading-5">
+                      I consent to treatment and authorize the healthcare provider to perform necessary medical procedures.
+                    </Label>
+                  </div>
+                  {errors.consentTreatment && (
+                    <p className="text-sm text-destructive ml-6">{errors.consentTreatment.message}</p>
+                  )}
+
+                  <div className="flex items-start space-x-3">
+                    <Checkbox
+                      id="consentPrivacy"
+                      {...register("consentPrivacy")}
+                      disabled={isLocked}
+                    />
+                    <Label htmlFor="consentPrivacy" className="text-sm leading-5">
+                      I acknowledge that I have received and understand the Notice of Privacy Practices.
+                    </Label>
+                  </div>
+                  {errors.consentPrivacy && (
+                    <p className="text-sm text-destructive ml-6">{errors.consentPrivacy.message}</p>
+                  )}
+
+                  <div className="flex items-start space-x-3">
+                    <Checkbox
+                      id="consentFinancial"
+                      {...register("consentFinancial")}
+                      disabled={isLocked}
+                    />
+                    <Label htmlFor="consentFinancial" className="text-sm leading-5">
+                      I understand and agree to the financial responsibilities and payment policies.
+                    </Label>
+                  </div>
+                  {errors.consentFinancial && (
+                    <p className="text-sm text-destructive ml-6">{errors.consentFinancial.message}</p>
+                  )}
+                </div>
+
+                <SignaturePad
+                  onSignatureChange={setSignature}
+                  disabled={isLocked}
+                  existingSignature={signature}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Navigation */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            {currentStep > 1 && !isLocked && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCurrentStep(prev => Math.max(1, prev - 1))}
+                className="flex-1"
+              >
+                Previous
+              </Button>
+            )}
+            
+            {currentStep < totalSteps && !isLocked ? (
+              <Button
+                type="button"
+                onClick={() => setCurrentStep(prev => Math.min(totalSteps, prev + 1))}
+                className="flex-1"
+              >
+                Next
+              </Button>
+            ) : !isLocked ? (
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                {isSubmitting ? "Submitting..." : "Complete & Submit"}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => navigate(`/intake/complete?patientId=${patientId}`)}
+                className="flex-1"
+              >
+                Continue
+              </Button>
+            )}
+          </div>
+        </form>
       </div>
     </div>
   );
