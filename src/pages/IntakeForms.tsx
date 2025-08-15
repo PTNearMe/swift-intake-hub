@@ -38,7 +38,6 @@ const formSchema = z.object({
   insuranceAssignmentConsent: z.boolean().refine(val => val === true, "Assignment of Insurance Benefits consent is required"),
   emergencyMedicalConsent: z.boolean().refine(val => val === true, "Notice of Emergency Medical Condition acknowledgment is required"),
   accidentDate: z.string().min(1, "Accident date is required for emergency medical condition"),
-  diagnosisCodes: z.string(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -485,7 +484,7 @@ const IntakeForms = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="text-sm leading-relaxed space-y-3 p-4 bg-muted/50 rounded-lg max-h-80 overflow-y-auto">
-                    <p>I _______________________________________________, understand that as part of my healthcare. HEALTH ONE MEDICAL CENTER, originates and maintains paper and/or electronic records describing my health history, symptoms, examination and test results, diagnosis, treatment, and any plans for further care of treatment.</p>
+                    <p>I <strong>{watch("patientName") || "_______________________________________________"}</strong>, understand that as part of my healthcare. HEALTH ONE MEDICAL CENTER, originates and maintains paper and/or electronic records describing my health history, symptoms, examination and test results, diagnosis, treatment, and any plans for further care of treatment.</p>
                     
                     <p>I understand that this information serves as:</p>
                     <ul className="list-disc pl-6 space-y-1">
@@ -539,7 +538,7 @@ const IntakeForms = () => {
                 <CardContent className="space-y-4">
                   <div className="text-xs leading-relaxed space-y-2 p-4 bg-muted/50 rounded-lg max-h-80 overflow-y-auto">
                     <p className="font-semibold">Insurer and Patient Please Read the Following in its Entirety Carefully!</p>
-                    <p>I, the undersigned patient/insured knowingly, voluntarily and intentionally assign the rights and benefits of my automobile Insurance, a/k/a Personal Injury Protection (hereinafter PIP), Uninsured Motorist, and Medical Payments policy of insurance to the above health care provider. I understand it is the intention of the provider to accept this assignment of benefits in lieu of demanding payment at the time services are rendered. I understand this document will allow the provider to file suit against an insurer for payment of the insurance benefits or an explanation of benefits and to seek §627.428 damages from the insurer. If the provider's bills are applied to a deductible, I agree this will serve as a benefit to me. This assignment of benefits includes the cost of transportation, medications, supplies, over due interest and any potential claim for common law or statutory bad faith/unfair claims handling. If the insurer disputes the validity of this assignment of benefits then the insurer is instructed to notify the provider in writing within five days of receipt of this document. Failure to inform the provider shall result in a waiver by the insurer to contest the validity of this document. The undersigned directs the insurer to pay the health care provider the maximum amount directly without any reductions & without including the patient's name on the check. To the extent the PIP insurer contends there is a material misrepresentation on the application for insurance resulting in the policy of insurance is declared voided, rescinded, or canceled, I, as the named insured under said policy of insurance, hereby assign the right to receive the premiums paid for my PIP insurance to this provider and to file suit for recovery of the premiums. The insurer is directed to issue such a refund check payable to this provider only. Should the medical bills not exceed the premium refunded, then the provider is directed to mail the patient/named insured a check which represents the difference between the medical bills and the premiums paid.</p>
+                    <p>I, <strong>{watch("patientName") || "_______________________________________________"}</strong>, the undersigned patient/insured knowingly, voluntarily and intentionally assign the rights and benefits of my automobile Insurance, a/k/a Personal Injury Protection (hereinafter PIP), Uninsured Motorist, and Medical Payments policy of insurance to the above health care provider. I understand it is the intention of the provider to accept this assignment of benefits in lieu of demanding payment at the time services are rendered. I understand this document will allow the provider to file suit against an insurer for payment of the insurance benefits or an explanation of benefits and to seek §627.428 damages from the insurer. If the provider's bills are applied to a deductible, I agree this will serve as a benefit to me. This assignment of benefits includes the cost of transportation, medications, supplies, over due interest and any potential claim for common law or statutory bad faith/unfair claims handling. If the insurer disputes the validity of this assignment of benefits then the insurer is instructed to notify the provider in writing within five days of receipt of this document. Failure to inform the provider shall result in a waiver by the insurer to contest the validity of this document. The undersigned directs the insurer to pay the health care provider the maximum amount directly without any reductions & without including the patient's name on the check. To the extent the PIP insurer contends there is a material misrepresentation on the application for insurance resulting in the policy of insurance is declared voided, rescinded, or canceled, I, as the named insured under said policy of insurance, hereby assign the right to receive the premiums paid for my PIP insurance to this provider and to file suit for recovery of the premiums. The insurer is directed to issue such a refund check payable to this provider only. Should the medical bills not exceed the premium refunded, then the provider is directed to mail the patient/named insured a check which represents the difference between the medical bills and the premiums paid.</p>
                     
                     <p className="font-semibold">Disputes:</p>
                     <p>The insurer is directed by the provider and the undersigned to not issue any checks or drafts in partial settlement of a claim that contain or are accompanied by language releasing the insurer or its insured/patient from liability unless there has been a prior written settlement agreed to by the health provider (specifically the office manager) and the insurer as to the amount payable under the insurance policy. The insured and the provider hereby contests and objects to any reductions or partial payments. Any partial or reduced payment, regardless of the accompanying language, issued by the insurer and deposited by the provider shall be done so under protest, at the risk of the insurer, and the deposit shall not be deemed a waiver, accord, satisfaction, discharge, settlement or agreement by the provider to accept a reduced amount as payment in full. The insurer is hereby placed on notice that this provider reserves the right to seek the full amount of the bills submitted. If the PIP insurer states it can pay claims at 200% of Medicare then the insurer is instructed & directed to provide this provider with a copy of the policy of insurance within 10 days. Any effort by the insurer to pay a disputed debt as full satisfaction must be mailed to the address above, after speaking with the office manager, and mailed to the specific attention of the Office Manager. See Fla. Stat. §673.3111.</p>
@@ -585,7 +584,7 @@ const IntakeForms = () => {
                 <CardContent className="space-y-4">
                   <div className="text-sm leading-relaxed space-y-3 p-4 bg-muted/50 rounded-lg">
                     <p>The undersigned licensed medical provider, hereby asserts:</p>
-                    <p>1. The below patient, has in the opinion of this medical provider, suffered an Emergency Medical Condition, as a result of the patient's injuries sustained in an automobile accident that occurred on ________________________ (fill in date of accident).</p>
+                    <p>1. The below patient, has in the opinion of this medical provider, suffered an Emergency Medical Condition, as a result of the patient's injuries sustained in an automobile accident that occurred on <strong>{watch("accidentDate") || "________________________"}</strong>.</p>
                     <p>2. The Basis of the opinion for finding an Emergency Medical Condition is that the patient has sustained acute symptoms of sufficient severity, which may include severe pain, such that the absence of immediate medical attention could reasonably be expected to result in any of the following: a) serious jeopardy to patient health; b) serious impairment to bodily functions; or c) serious dysfunction of a bodily organ or part.</p>
                     
                     <p>The undersigned injured person or legal guardian of such person asserts:</p>
@@ -608,17 +607,6 @@ const IntakeForms = () => {
                         <p className="text-sm text-destructive">{errors.accidentDate.message}</p>
                       )}
                     </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="diagnosisCodes">Diagnosis Codes (to be filled by provider)</Label>
-                    <Textarea
-                      id="diagnosisCodes"
-                      placeholder="DX codes will be filled by medical provider"
-                      {...register("diagnosisCodes")}
-                      disabled={isLocked}
-                      rows={3}
-                    />
                   </div>
                   
                   <div className="flex items-start space-x-3">
