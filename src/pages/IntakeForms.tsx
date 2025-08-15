@@ -110,23 +110,13 @@ const IntakeForms = () => {
 
       console.log("Attempting to save intake form with data:", formData);
 
-      // SECURITY: Use upsert to handle duplicate submissions securely
-      // This prevents duplicate records while maintaining security
-      const { data: insertedForm, error } = await supabase
-        .from("intake_forms")
-        .upsert([
-          {
-            patient_id: patientId,
-            form_data: formData,
-            signed_at: new Date().toISOString(),
-            fax_sent: false,
-            email_sent: false,
-          },
-        ], {
-          onConflict: 'patient_id'
-        })
-        .select()
-        .single();
+      // Use a SECURITY DEFINER function to bypass RLS issues with anonymous users
+      const { data: insertedFormId, error } = await supabase
+        .rpc('create_intake_form', {
+          _patient_id: patientId,
+          _form_data: formData,
+          _signed_at: new Date().toISOString()
+        });
 
       if (error) {
         console.error("Database error details:", {
@@ -143,15 +133,15 @@ const IntakeForms = () => {
         return;
       }
 
-      console.log("Form saved successfully:", insertedForm);
+      console.log("Form saved successfully with ID:", insertedFormId);
 
       setIsLocked(true);
 
       // Send email notification with form data
       try {
-        console.log("Sending email notification for form:", insertedForm.id);
+        console.log("Sending email notification for form:", insertedFormId);
         const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-intake-email', {
-          body: { intakeFormId: insertedForm.id }
+          body: { intakeFormId: insertedFormId }
         });
 
         if (emailError) {

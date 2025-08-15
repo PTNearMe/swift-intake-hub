@@ -147,6 +147,10 @@ export type Database = {
         Args: { user_email: string }
         Returns: undefined
       }
+      create_intake_form: {
+        Args: { _form_data: Json; _patient_id: string; _signed_at: string }
+        Returns: string
+      }
       has_medical_access: {
         Args: Record<PropertyKey, never>
         Returns: boolean
