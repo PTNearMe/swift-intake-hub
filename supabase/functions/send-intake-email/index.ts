@@ -47,7 +47,49 @@ serve(async (req) => {
 
 // Generate PDF
 const doc = new jsPDF()
-let yPosition = 20
+
+// Helper function to add header to each page
+const addHeader = () => {
+  // Add logo
+  const logoUrl = 'https://86ad853d-560e-49db-bd33-729d57a4d0a6.lovableproject.com/lovable-uploads/77934ca8-e9c4-428b-acc2-5ba065199c7f.png'
+  try {
+    // Create a canvas to load and convert the logo
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    
+    // Add logo placeholder for now - in a real implementation we'd load the image
+    doc.setFontSize(16)
+    doc.setFont(undefined, 'bold')
+    doc.text('HEALTH ONE MEDICAL CENTER', 20, 15)
+    doc.setFont(undefined, 'normal')
+    doc.setFontSize(9)
+    doc.text('ORLANDO - 1803 Park Center Drive, Suite 110 - 32835', 20, 22)
+    doc.text('GAINESVILLE - 7328 W. University Ave', 20, 27)
+    
+    // Add a line separator
+    doc.setLineWidth(0.5)
+    doc.line(20, 32, 190, 32)
+  } catch (error) {
+    console.log('Could not add logo, using text header instead')
+    doc.setFontSize(16)
+    doc.setFont(undefined, 'bold')
+    doc.text('HEALTH ONE MEDICAL CENTER', 20, 15)
+    doc.setFont(undefined, 'normal')
+    doc.setFontSize(9)
+    doc.text('ORLANDO - 1803 Park Center Drive, Suite 110 - 32835', 20, 22)
+    doc.text('GAINESVILLE - 7328 W. University Ave', 20, 27)
+    
+    // Add a line separator
+    doc.setLineWidth(0.5)
+    doc.line(20, 32, 190, 32)
+  }
+  
+  return 40 // Return starting yPosition after header
+}
+
+let yPosition = addHeader()
 
 // Helper function to add signature image
 const addSignatureImage = (x: number, y: number, width: number = 80, height: number = 25) => {
@@ -144,7 +186,7 @@ const lines1 = doc.splitTextToSize(consentText1, 170)
 for (const line of lines1) {
   if (yPosition > 240) {
     doc.addPage()
-    yPosition = 20
+    yPosition = addHeader()
   }
   
   // Check if line contains patient name or medical center and make them bold
@@ -186,7 +228,7 @@ yPosition += signatureHeight1 + 10
 
 // Add new page for insurance assignment
 doc.addPage()
-yPosition = 20
+yPosition = addHeader()
 
 // ASSIGNMENT OF INSURANCE BENEFITS SECTION
 doc.setFontSize(12)
@@ -220,7 +262,7 @@ const lines2 = doc.splitTextToSize(consentText2, 170)
 for (const line of lines2) {
   if (yPosition > 240) {
     doc.addPage()
-    yPosition = 20
+    yPosition = addHeader()
   }
   
   // Bold patient name in insurance section
@@ -261,7 +303,7 @@ yPosition += signatureHeight2 + 10
 
 // Add new page for emergency medical condition
 doc.addPage()
-yPosition = 20
+yPosition = addHeader()
 
 // NOTICE OF EMERGENCY MEDICAL CONDITION SECTION
 doc.setFontSize(12)
@@ -290,7 +332,7 @@ const lines3 = doc.splitTextToSize(consentText3, 170)
 for (const line of lines3) {
   if (yPosition > 240) {
     doc.addPage()
-    yPosition = 20
+    yPosition = addHeader()
   }
   doc.text(line, 20, yPosition)
   yPosition += 4
