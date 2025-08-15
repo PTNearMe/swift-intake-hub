@@ -143,6 +143,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_admin_user: {
+        Args: { user_email: string }
+        Returns: undefined
+      }
       has_medical_access: {
         Args: Record<PropertyKey, never>
         Returns: boolean

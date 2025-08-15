@@ -11,6 +11,7 @@ import IntakeForms from "./pages/IntakeForms";
 import IntakeComplete from "./pages/IntakeComplete";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminSetup from "./pages/AdminSetup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/intake/start" element={<IntakeStart />} />
             <Route path="/intake/forms" element={<IntakeForms />} />
             <Route path="/intake/complete" element={<IntakeComplete />} />
+            <Route path="/admin/setup" element={<AdminSetup />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route 
               path="/admin" 
