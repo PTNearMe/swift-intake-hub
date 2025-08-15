@@ -2,3 +2,6 @@ project_id = "qywicuiedcpwokojgoxs"
 
 [functions.send-intake-email]
 verify_jwt = false
+
+[functions.track-doxy-redirect]
+verify_jwt = false
