@@ -36,14 +36,16 @@ const IntakeStart = () => {
   });
 
   const onSubmit = async (data: FormData) => {
+    console.log("Form submission started with data:", data);
     setIsSubmitting(true);
     
     try {
       // Generate a secure session token
       const sessionToken = uuidv4();
+      console.log("Generated session token:", sessionToken);
       
       // Create an intake session instead of directly creating a patient
-      const { error } = await supabase
+      const { data: sessionData, error } = await supabase
         .from("intake_sessions")
         .insert([
           {
@@ -51,7 +53,10 @@ const IntakeStart = () => {
             patient_name: data.name,
             patient_phone: data.phone,
           },
-        ]);
+        ])
+        .select();
+
+      console.log("Supabase response:", { sessionData, error });
 
       if (error) {
         console.error("Error creating intake session:", error);
@@ -63,8 +68,13 @@ const IntakeStart = () => {
         return;
       }
 
+      console.log("Session created successfully, navigating to forms...");
+      
       // Navigate to forms page with session token
-      navigate(`/intake/forms?sessionToken=${sessionToken}`);
+      const formsUrl = `/intake/forms?sessionToken=${sessionToken}`;
+      console.log("Navigating to:", formsUrl);
+      
+      navigate(formsUrl);
     } catch (error) {
       console.error("Unexpected error:", error);
       toast({
