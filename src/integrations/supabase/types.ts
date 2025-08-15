@@ -51,6 +51,8 @@ export type Database = {
           form_data: Json | null
           id: string
           patient_id: string
+          pdf_generated_at: string | null
+          pdf_url: string | null
           signed_at: string | null
         }
         Insert: {
@@ -60,6 +62,8 @@ export type Database = {
           form_data?: Json | null
           id?: string
           patient_id: string
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
           signed_at?: string | null
         }
         Update: {
@@ -69,6 +73,8 @@ export type Database = {
           form_data?: Json | null
           id?: string
           patient_id?: string
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
           signed_at?: string | null
         }
         Relationships: [

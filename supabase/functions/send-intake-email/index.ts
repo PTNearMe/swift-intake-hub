@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
+import jsPDF from "https://esm.sh/jspdf@2.5.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,23 +82,47 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(errorMsg);
     }
 
-    // Generate PDF content (HTML that can be converted to PDF)
-    const pdfHtml = generateFormPDF(intakeForm, patient);
+    // Generate PDF using jsPDF
+    const pdfBuffer = generatePDF(intakeForm, patient);
+    console.log("Generated PDF");
     
-    // Create PDF buffer from HTML
-    const pdfBuffer = await htmlToPdf(pdfHtml);
+    // Upload PDF to Supabase Storage
+    const fileName = `${patient.name.replace(/\s+/g, '_')}_${intakeFormId}_intake.pdf`;
+    const filePath = `${intakeFormId}/${fileName}`;
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('intake-forms')
+      .upload(filePath, pdfBuffer, {
+        contentType: 'application/pdf',
+        upsert: true
+      });
+    
+    if (uploadError) {
+      console.error('Error uploading PDF:', uploadError);
+      throw new Error('Failed to upload PDF to storage');
+    }
+    
+    console.log("PDF uploaded to storage:", uploadData.path);
+    
+    // Get public URL for the PDF
+    const { data: { publicUrl } } = supabase.storage
+      .from('intake-forms')
+      .getPublicUrl(filePath);
+    
+    console.log("PDF public URL:", publicUrl);
 
     // Send email with PDF attachment using SendGrid
     await sendEmailWithAttachment(patient.name, pdfBuffer, generateEmailSummary(intakeForm.form_data));
 
     console.log('Email sent successfully, updating database');
 
-    // Update intake_forms table to mark email as sent
+    // Update intake_forms table to mark email as sent and store PDF URL
     const { error: updateError } = await supabase
       .from('intake_forms')
       .update({ 
         email_sent: true,
-        // Note: signed_at should already be set when form was submitted
+        pdf_url: publicUrl,
+        pdf_generated_at: new Date().toISOString()
       })
       .eq('id', intakeFormId);
 
@@ -217,37 +242,121 @@ function generateFormPDF(intakeForm: IntakeFormData, patient: PatientData): stri
   `;
 }
 
-async function htmlToPdf(html: string): Promise<Uint8Array> {
-  // Create a more structured text format instead of raw HTML stripping
-  const structuredText = html
-    .replace(/<h1[^>]*>(.*?)<\/h1>/g, '\n\n=== $1 ===\n')
-    .replace(/<h2[^>]*>(.*?)<\/h2>/g, '\n\n--- $1 ---\n')
-    .replace(/<div class="section-title"[^>]*>(.*?)<\/div>/g, '\n\n*** $1 ***\n')
-    .replace(/<div class="field"[^>]*>/g, '\n  ')
-    .replace(/<span class="field-label"[^>]*>(.*?)<\/span>/g, '$1')
-    .replace(/<span class="field-value"[^>]*>(.*?)<\/span>/g, ' $1')
-    .replace(/<span class="checkbox"[^>]*>(.*?)<\/span>/g, '$1 ')
-    .replace(/<p[^>]*>(.*?)<\/p>/g, '\n$1')
-    .replace(/<br\s*\/?>/g, '\n')
-    .replace(/<[^>]*>/g, '') // Remove remaining HTML tags
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/\n\s*\n\s*\n/g, '\n\n') // Remove excessive line breaks
-    .trim();
+function generatePDF(intakeForm: IntakeFormData, patient: PatientData): Uint8Array {
+  const doc = new jsPDF();
+  const formData = intakeForm.form_data;
   
-  // Add a header to identify the document type
-  const finalText = `PATIENT INTAKE FORM - TEXT FORMAT
-Generated: ${new Date().toISOString()}
-===============================================
-
-${structuredText}
-
-===============================================
-End of Patient Intake Form`;
+  // Title
+  doc.setFontSize(20);
+  doc.text('Patient Intake Form', 20, 30);
   
-  return new TextEncoder().encode(finalText);
+  // Patient header
+  doc.setFontSize(14);
+  doc.text(`Patient: ${patient.name}`, 20, 45);
+  doc.text(`Submitted: ${new Date(intakeForm.signed_at || intakeForm.created_at).toLocaleDateString()}`, 20, 55);
+  
+  let yPosition = 75;
+  
+  // Personal Information
+  doc.setFontSize(16);
+  doc.text('Personal Information', 20, yPosition);
+  yPosition += 10;
+  doc.setFontSize(12);
+  
+  const personalFields = [
+    [`Name:`, `${formData.firstName || ''} ${formData.lastName || ''}`],
+    [`Date of Birth:`, formData.dateOfBirth || 'Not provided'],
+    [`Phone:`, formData.phone || patient.phone || 'Not provided'],
+    [`Address:`, formData.address || 'Not provided'],
+    [`Emergency Contact:`, `${formData.emergencyContactName || 'Not provided'} - ${formData.emergencyContactPhone || 'Not provided'}`]
+  ];
+  
+  personalFields.forEach(([label, value]) => {
+    doc.text(label, 20, yPosition);
+    doc.text(value, 80, yPosition);
+    yPosition += 8;
+  });
+  
+  yPosition += 10;
+  
+  // Medical History
+  doc.setFontSize(16);
+  doc.text('Medical History', 20, yPosition);
+  yPosition += 10;
+  doc.setFontSize(12);
+  
+  const medicalFields = [
+    [`Current Medications:`, formData.currentMedications || 'None'],
+    [`Allergies:`, formData.allergies || 'None'],
+    [`Medical History:`, formData.medicalHistory || 'None']
+  ];
+  
+  medicalFields.forEach(([label, value]) => {
+    doc.text(label, 20, yPosition);
+    // Handle long text by splitting into multiple lines
+    const lines = doc.splitTextToSize(value, 100);
+    doc.text(lines, 80, yPosition);
+    yPosition += lines.length * 8;
+  });
+  
+  yPosition += 10;
+  
+  // Insurance Information
+  doc.setFontSize(16);
+  doc.text('Insurance Information', 20, yPosition);
+  yPosition += 10;
+  doc.setFontSize(12);
+  
+  const insuranceFields = [
+    [`Provider:`, formData.insuranceProvider || 'Not provided'],
+    [`Policy Number:`, formData.policyNumber || 'Not provided'],
+    [`Group Number:`, formData.groupNumber || 'Not provided']
+  ];
+  
+  insuranceFields.forEach(([label, value]) => {
+    doc.text(label, 20, yPosition);
+    doc.text(value, 80, yPosition);
+    yPosition += 8;
+  });
+  
+  yPosition += 10;
+  
+  // Consents
+  doc.setFontSize(16);
+  doc.text('Consents', 20, yPosition);
+  yPosition += 10;
+  doc.setFontSize(12);
+  
+  const consentFields = [
+    [`Treatment Consent:`, formData.consentTreatment ? 'Yes' : 'No'],
+    [`Privacy Policy:`, formData.consentPrivacy ? 'Yes' : 'No'],
+    [`Financial Responsibility:`, formData.consentFinancial ? 'Yes' : 'No']
+  ];
+  
+  consentFields.forEach(([label, value]) => {
+    doc.text(label, 20, yPosition);
+    doc.text(value, 80, yPosition);
+    yPosition += 8;
+  });
+  
+  // Signature section
+  if (yPosition > 250) {
+    doc.addPage();
+    yPosition = 30;
+  }
+  
+  yPosition += 15;
+  doc.setFontSize(16);
+  doc.text('Digital Signature', 20, yPosition);
+  yPosition += 10;
+  doc.setFontSize(12);
+  doc.text(`Electronically signed by: ${formData.firstName || ''} ${formData.lastName || ''}`, 20, yPosition);
+  yPosition += 8;
+  doc.text(`Date signed: ${new Date(intakeForm.signed_at || intakeForm.created_at).toLocaleDateString()}`, 20, yPosition);
+  
+  // Convert to Uint8Array
+  const pdfOutput = doc.output('arraybuffer');
+  return new Uint8Array(pdfOutput);
 }
 
 function generateEmailSummary(formData: any): string {
@@ -339,8 +448,8 @@ async function sendEmailWithAttachment(patientName: string, pdfBuffer: Uint8Arra
     attachments: [
       {
         content: base64Pdf,
-        filename: `intake-form-${patientName.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.txt`,
-        type: 'text/plain',
+        filename: `intake-form-${patientName.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`,
+        type: 'application/pdf',
         disposition: 'attachment'
       }
     ]

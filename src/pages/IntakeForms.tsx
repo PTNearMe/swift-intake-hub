@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { SignaturePad } from "@/components/SignaturePad";
-import { CalendarDays, User, Phone, MapPin, AlertCircle } from "lucide-react";
+import { CalendarDays, User, Phone, MapPin, AlertCircle, FileText } from "lucide-react";
 
 const formSchema = z.object({
   // Personal Information
@@ -51,6 +51,7 @@ const IntakeForms = () => {
   const [existingForm, setExistingForm] = useState<any>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const totalSteps = 4;
 
   const {
@@ -92,6 +93,7 @@ const IntakeForms = () => {
       if (data) {
         setExistingForm(data);
         setIsLocked(!!data.signed_at);
+        setPdfUrl(data.pdf_url || null);
         
         // Populate form with existing data
         if (data.form_data) {
@@ -258,13 +260,28 @@ const IntakeForms = () => {
         {isLocked && (
           <Card className="mb-6 border-green-200 bg-green-50 dark:bg-green-900/20">
             <CardContent className="pt-6">
-              <div className="flex items-center space-x-2 text-green-700 dark:text-green-400">
-                <AlertCircle className="h-5 w-5" />
-                <p className="font-medium">Forms Completed</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-green-700 dark:text-green-400">
+                  <AlertCircle className="h-5 w-5" />
+                  <div>
+                    <p className="font-medium">Forms Completed</p>
+                    <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                      Your intake forms have been submitted and locked for editing.
+                    </p>
+                  </div>
+                </div>
+                {pdfUrl && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.open(pdfUrl, '_blank')}
+                    className="text-green-700 border-green-300 hover:bg-green-100 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-800"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                )}
               </div>
-              <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                Your intake forms have been submitted and locked for editing.
-              </p>
             </CardContent>
           </Card>
         )}
